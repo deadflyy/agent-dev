@@ -1,14 +1,27 @@
 * {
     margin: 0;
     padding: 0;
+    -webkit-box-sizing: border-box;
+    -moz-box-sizing: border-box;
     box-sizing: border-box;
+}
+
+html {
+    -webkit-text-size-adjust: 100%;
+    -ms-text-size-adjust: 100%;
+    text-size-adjust: 100%;
 }
 
 body {
     font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    background: -webkit-linear-gradient(135deg, #FFE4EC 0%, #FFF0F5 50%, #E6E6FA 100%);
+    background: -moz-linear-gradient(135deg, #FFE4EC 0%, #FFF0F5 50%, #E6E6FA 100%);
+    background: -o-linear-gradient(135deg, #FFE4EC 0%, #FFF0F5 50%, #E6E6FA 100%);
     background: linear-gradient(135deg, #FFE4EC 0%, #FFF0F5 50%, #E6E6FA 100%);
     min-height: 100vh;
     overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
 }
 
 /* 游戏容器 */
@@ -20,11 +33,28 @@ body {
 
 /* 游戏头部 */
 .game-header {
+    background: -webkit-linear-gradient(135deg, #FF9EB5 0%, #FFB6C1 100%);
+    background: -moz-linear-gradient(135deg, #FF9EB5 0%, #FFB6C1 100%);
+    background: -o-linear-gradient(135deg, #FF9EB5 0%, #FFB6C1 100%);
     background: linear-gradient(135deg, #FF9EB5 0%, #FFB6C1 100%);
     padding: 15px 20px;
+    display: -webkit-box;
+    display: -webkit-flex;
+    display: -moz-box;
+    display: -ms-flexbox;
     display: flex;
+    -webkit-box-pack: justify;
+    -webkit-justify-content: space-between;
+    -moz-box-pack: justify;
+    -ms-flex-pack: justify;
     justify-content: space-between;
+    -webkit-box-align: center;
+    -webkit-align-items: center;
+    -moz-box-align: center;
+    -ms-flex-align: center;
     align-items: center;
+    -webkit-box-shadow: 0 4px 15px rgba(255, 158, 181, 0.4);
+    -moz-box-shadow: 0 4px 15px rgba(255, 158, 181, 0.4);
     box-shadow: 0 4px 15px rgba(255, 158, 181, 0.4);
     position: relative;
     z-index: 10;

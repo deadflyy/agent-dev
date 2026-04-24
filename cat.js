@@ -21,8 +21,8 @@ class CatGame {
         // 难度设置 (easy, medium, hard)
         this.difficulty = 'medium';
 
-        // 关卡进度 (记录已通关的关卡)
-        this.unlockedLevels = this.loadUnlockedLevels();
+        // 难度独立的关卡进度
+        this.difficultyProgress = this.loadDifficultyProgress();
         
         // 游戏对象
         this.cat = { x: 0, y: 0, targetX: 0, targetY: 0, moving: false };
@@ -85,35 +85,47 @@ class CatGame {
         this.init();
     }
 
-    // 从本地存储加载已解锁关卡
-    loadUnlockedLevels() {
+    // 从本地存储加载难度独立的进度
+    loadDifficultyProgress() {
         try {
-            const saved = localStorage.getItem('catGameUnlockedLevels');
+            const saved = localStorage.getItem('catGameDifficultyProgress');
             if (saved) {
                 return JSON.parse(saved);
             }
         } catch (e) {
             console.log('无法读取本地存储');
         }
-        // 默认只解锁第一关
-        return [1];
+        // 默认每个难度只解锁第一关
+        return {
+            easy: [1],
+            medium: [1],
+            hard: [1]
+        };
     }
 
-    // 保存已解锁关卡到本地存储
-    saveUnlockedLevels() {
+    // 保存难度独立的进度到本地存储
+    saveDifficultyProgress() {
         try {
-            localStorage.setItem('catGameUnlockedLevels', JSON.stringify(this.unlockedLevels));
+            localStorage.setItem('catGameDifficultyProgress', JSON.stringify(this.difficultyProgress));
         } catch (e) {
             console.log('无法保存到本地存储');
         }
     }
 
-    // 解锁新关卡
+    // 获取当前难度的已解锁关卡
+    getUnlockedLevels() {
+        return this.difficultyProgress[this.difficulty] || [1];
+    }
+
+    // 解锁新关卡（当前难度）
     unlockLevel(level) {
-        if (!this.unlockedLevels.includes(level)) {
-            this.unlockedLevels.push(level);
-            this.unlockedLevels.sort((a, b) => a - b);
-            this.saveUnlockedLevels();
+        if (!this.difficultyProgress[this.difficulty]) {
+            this.difficultyProgress[this.difficulty] = [1];
+        }
+        if (!this.difficultyProgress[this.difficulty].includes(level)) {
+            this.difficultyProgress[this.difficulty].push(level);
+            this.difficultyProgress[this.difficulty].sort((a, b) => a - b);
+            this.saveDifficultyProgress();
         }
     }
 
@@ -140,6 +152,9 @@ class CatGame {
         }
         this.canvas.width = this.gridWidth * this.tileSize;
         this.canvas.height = this.gridHeight * this.tileSize;
+
+        // 重置到当前难度的第一关
+        this.currentLevel = 1;
     }
 
     // 渲染关卡选择网格
@@ -149,12 +164,14 @@ class CatGame {
 
         levelGrid.innerHTML = '';
 
+        const unlockedLevels = this.getUnlockedLevels();
+
         for (let i = 1; i <= this.maxLevels; i++) {
             const btn = document.createElement('button');
             btn.className = 'level-btn';
             btn.dataset.level = i;
 
-            const isUnlocked = this.unlockedLevels.includes(i);
+            const isUnlocked = unlockedLevels.includes(i);
             const isCurrent = i === this.currentLevel;
 
             if (isCurrent) {
@@ -199,12 +216,62 @@ class CatGame {
         this.gameLoop();
     }
     
-    // 根据难度调整关卡配置
-    getDifficultyMultiplier() {
+    // 根据难度和关卡获取配置
+    getDifficultyConfig(baseConfig, levelNum) {
         switch(this.difficulty) {
-            case 'easy': return 0.6;
-            case 'hard': return 1.5;
-            default: return 1.0;
+            case 'easy':
+                // 简单难度：从只有小星星开始，逐步添加数学题、字母题
+                return {
+                    ...baseConfig,
+                    starCount: Math.max(3, baseConfig.starCount + 1),
+                    wallCount: Math.max(0, baseConfig.wallCount - 3),
+                    hasKeys: false,
+                    hasMathPuzzles: levelNum >= 5,  // 第5关开始有数学题
+                    mathPuzzleCount: levelNum >= 5 ? Math.max(1, Math.floor((levelNum - 4) / 2)) : 0,
+                    hasLetterPuzzles: levelNum >= 10,  // 第10关开始有字母题
+                    letterPuzzleCount: levelNum >= 10 ? Math.max(1, Math.floor((levelNum - 9) / 3)) : 0,
+                    hasChinesePuzzles: false,
+                    message: levelNum < 5 ? '收集所有星星，帮助小猫回家！' :
+                            levelNum < 10 ? '收集星星，解答数学题！' :
+                            '收集星星，解答数学题和字母题！'
+                };
+            case 'medium':
+                // 中等难度：从小星星和数学题开始，逐步添加字母题、汉字题
+                return {
+                    ...baseConfig,
+                    starCount: baseConfig.starCount,
+                    wallCount: baseConfig.wallCount,
+                    hasKeys: baseConfig.hasKeys,
+                    doorCount: baseConfig.doorCount,
+                    hasMathPuzzles: true,
+                    mathPuzzleCount: Math.max(1, Math.floor((levelNum + 1) / 2)),
+                    hasLetterPuzzles: levelNum >= 5,  // 第5关开始有字母题
+                    letterPuzzleCount: levelNum >= 5 ? Math.max(1, Math.floor((levelNum - 4) / 3)) : 0,
+                    hasChinesePuzzles: levelNum >= 10,  // 第10关开始有汉字题
+                    chinesePuzzleCount: levelNum >= 10 ? Math.max(1, Math.floor((levelNum - 9) / 3)) : 0,
+                    message: levelNum < 5 ? '收集星星，解答数学题！' :
+                            levelNum < 10 ? '收集星星，解答数学题和字母题！' :
+                            '收集星星，解答数学题、字母题和汉字题！'
+                };
+            case 'hard':
+                // 高阶难度：从小星星、数学题和字母题开始，逐步添加汉字题
+                return {
+                    ...baseConfig,
+                    starCount: Math.max(1, baseConfig.starCount - 1),
+                    wallCount: baseConfig.wallCount + 2,
+                    hasKeys: true,
+                    doorCount: Math.max(1, Math.floor(levelNum / 2)),
+                    hasMathPuzzles: true,
+                    mathPuzzleCount: Math.max(2, Math.floor((levelNum + 2) / 2)),
+                    hasLetterPuzzles: true,
+                    letterPuzzleCount: Math.max(1, Math.floor(levelNum / 3)),
+                    hasChinesePuzzles: levelNum >= 8,  // 第8关开始有汉字题
+                    chinesePuzzleCount: levelNum >= 8 ? Math.max(1, Math.floor((levelNum - 7) / 3)) : 0,
+                    message: levelNum < 8 ? '收集星星，解答数学题和字母题！' :
+                            '收集星星，解答数学题、字母题和汉字题！'
+                };
+            default:
+                return baseConfig;
         }
     }
 
@@ -213,17 +280,8 @@ class CatGame {
         const levelConfigs = this.getLevelConfigs();
         const baseConfig = levelConfigs[Math.min(levelNum - 1, levelConfigs.length - 1)];
 
-        // 根据难度调整配置
-        const multiplier = this.getDifficultyMultiplier();
-        const config = {
-            ...baseConfig,
-            starCount: Math.max(1, Math.floor(baseConfig.starCount * multiplier)),
-            wallCount: Math.floor(baseConfig.wallCount * multiplier),
-            doorCount: baseConfig.doorCount ? Math.max(1, Math.floor(baseConfig.doorCount * multiplier)) : 0,
-            mathPuzzleCount: baseConfig.mathPuzzleCount ? Math.max(1, Math.floor(baseConfig.mathPuzzleCount * multiplier)) : 0,
-            letterPuzzleCount: baseConfig.letterPuzzleCount ? Math.max(1, Math.floor(baseConfig.letterPuzzleCount * multiplier)) : 0,
-            chinesePuzzleCount: baseConfig.chinesePuzzleCount ? Math.max(1, Math.floor(baseConfig.chinesePuzzleCount * multiplier)) : 0
-        };
+        // 根据难度和关卡调整配置
+        const config = this.getDifficultyConfig(baseConfig, levelNum);
 
         // 随机生成猫咪起始位置（在边缘）
         const catPos = this.getRandomEdgePosition();
@@ -283,7 +341,7 @@ class CatGame {
             letterPuzzles.forEach(p => occupied.add(`${p.x},${p.y}`));
         }
 
-        // 生成汉字题
+        // 生成汉字题（只在特定关卡）
         if (config.hasChinesePuzzles && config.chinesePuzzleCount > 0) {
             const chinesePuzzles = this.generateChinesePuzzles(config.chinesePuzzleCount, occupied);
             level.puzzles = level.puzzles.concat(chinesePuzzles);
@@ -637,9 +695,13 @@ class CatGame {
             }
         });
 
+        // 重新渲染关卡网格以显示该难度的进度
+        this.renderLevelGrid();
+
         // 显示提示
         const difficultyNames = { easy: '简单', medium: '中等', hard: '高阶' };
-        this.showMessage(`已选择${difficultyNames[difficulty]}难度`, '🎯');
+        const unlockedCount = this.getUnlockedLevels().length;
+        this.showMessage(`${difficultyNames[difficulty]}难度：已解锁 ${unlockedCount} 关`, '🎯');
     }
 
     // 设置移动端触摸事件
@@ -760,6 +822,11 @@ class CatGame {
             return;
         }
 
+        // Chrome浏览器需要恢复语音合成（防止被暂停）
+        if (window.speechSynthesis.paused) {
+            window.speechSynthesis.resume();
+        }
+
         // 停止当前播放的语音
         window.speechSynthesis.cancel();
 
@@ -771,6 +838,15 @@ class CatGame {
         utterance.rate = 0.9; // 稍慢一点，适合儿童
         utterance.pitch = 1.1; // 稍高一点，更亲切
         utterance.volume = 1.0;
+
+        // Chrome浏览器：尝试获取中文语音
+        if (window.speechSynthesis.getVoices) {
+            const voices = window.speechSynthesis.getVoices();
+            const zhVoice = voices.find(v => v.lang.includes('zh') || v.lang.includes('CN'));
+            if (zhVoice) {
+                utterance.voice = zhVoice;
+            }
+        }
 
         // 更新按钮状态
         const playBtn = document.getElementById('playAudioBtn');
@@ -1164,9 +1240,9 @@ class CatGame {
         this.currentLevel = 1;
         this.score = 0;
         this.starsCollected = 0;
-        // 重置关卡进度
-        this.unlockedLevels = [1];
-        this.saveUnlockedLevels();
+        // 重置当前难度的关卡进度
+        this.difficultyProgress[this.difficulty] = [1];
+        this.saveDifficultyProgress();
         this.renderLevelGrid();
         this.loadLevel(1);
         this.showScreen('gameScreen');
