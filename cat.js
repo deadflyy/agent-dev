@@ -17,6 +17,12 @@ class CatGame {
         this.score = 0;
         this.levelScore = 0;
         this.starsCollected = 0;
+
+        // 难度设置 (easy, medium, hard)
+        this.difficulty = 'medium';
+
+        // 关卡进度 (记录已通关的关卡)
+        this.unlockedLevels = this.loadUnlockedLevels();
         
         // 游戏对象
         this.cat = { x: 0, y: 0, targetX: 0, targetY: 0, moving: false };
@@ -78,34 +84,156 @@ class CatGame {
         
         this.init();
     }
-    
+
+    // 从本地存储加载已解锁关卡
+    loadUnlockedLevels() {
+        try {
+            const saved = localStorage.getItem('catGameUnlockedLevels');
+            if (saved) {
+                return JSON.parse(saved);
+            }
+        } catch (e) {
+            console.log('无法读取本地存储');
+        }
+        // 默认只解锁第一关
+        return [1];
+    }
+
+    // 保存已解锁关卡到本地存储
+    saveUnlockedLevels() {
+        try {
+            localStorage.setItem('catGameUnlockedLevels', JSON.stringify(this.unlockedLevels));
+        } catch (e) {
+            console.log('无法保存到本地存储');
+        }
+    }
+
+    // 解锁新关卡
+    unlockLevel(level) {
+        if (!this.unlockedLevels.includes(level)) {
+            this.unlockedLevels.push(level);
+            this.unlockedLevels.sort((a, b) => a - b);
+            this.saveUnlockedLevels();
+        }
+    }
+
+    // 设置难度
+    setDifficulty(difficulty) {
+        this.difficulty = difficulty;
+        // 根据难度调整网格大小
+        switch(difficulty) {
+            case 'easy':
+                this.gridWidth = 6;
+                this.gridHeight = 6;
+                this.tileSize = 70;
+                break;
+            case 'medium':
+                this.gridWidth = 8;
+                this.gridHeight = 8;
+                this.tileSize = 60;
+                break;
+            case 'hard':
+                this.gridWidth = 10;
+                this.gridHeight = 10;
+                this.tileSize = 50;
+                break;
+        }
+        this.canvas.width = this.gridWidth * this.tileSize;
+        this.canvas.height = this.gridHeight * this.tileSize;
+    }
+
+    // 渲染关卡选择网格
+    renderLevelGrid() {
+        const levelGrid = document.getElementById('levelGrid');
+        if (!levelGrid) return;
+
+        levelGrid.innerHTML = '';
+
+        for (let i = 1; i <= this.maxLevels; i++) {
+            const btn = document.createElement('button');
+            btn.className = 'level-btn';
+            btn.dataset.level = i;
+
+            const isUnlocked = this.unlockedLevels.includes(i);
+            const isCurrent = i === this.currentLevel;
+
+            if (isCurrent) {
+                btn.classList.add('current');
+            } else if (isUnlocked) {
+                btn.classList.add('unlocked');
+            } else {
+                btn.classList.add('locked');
+                btn.disabled = true;
+            }
+
+            btn.innerHTML = `
+                <span class="level-number">${i}</span>
+                <span class="level-status">${isCurrent ? '当前' : (isUnlocked ? '已解锁' : '🔒')}</span>
+            `;
+
+            if (isUnlocked) {
+                btn.addEventListener('click', () => this.selectLevel(i));
+            }
+
+            levelGrid.appendChild(btn);
+        }
+    }
+
+    // 选择关卡
+    selectLevel(level) {
+        this.currentLevel = level;
+        this.renderLevelGrid();
+        this.showMessage(`已选择第 ${level} 关`, '🎯');
+    }
+
     init() {
         this.bindEvents();
         this.startScreen();
         this.gameLoop();
     }
     
+    // 根据难度调整关卡配置
+    getDifficultyMultiplier() {
+        switch(this.difficulty) {
+            case 'easy': return 0.6;
+            case 'hard': return 1.5;
+            default: return 1.0;
+        }
+    }
+
     // 生成随机关卡
     generateRandomLevel(levelNum) {
         const levelConfigs = this.getLevelConfigs();
-        const config = levelConfigs[Math.min(levelNum - 1, levelConfigs.length - 1)];
-        
+        const baseConfig = levelConfigs[Math.min(levelNum - 1, levelConfigs.length - 1)];
+
+        // 根据难度调整配置
+        const multiplier = this.getDifficultyMultiplier();
+        const config = {
+            ...baseConfig,
+            starCount: Math.max(1, Math.floor(baseConfig.starCount * multiplier)),
+            wallCount: Math.floor(baseConfig.wallCount * multiplier),
+            doorCount: baseConfig.doorCount ? Math.max(1, Math.floor(baseConfig.doorCount * multiplier)) : 0,
+            mathPuzzleCount: baseConfig.mathPuzzleCount ? Math.max(1, Math.floor(baseConfig.mathPuzzleCount * multiplier)) : 0,
+            letterPuzzleCount: baseConfig.letterPuzzleCount ? Math.max(1, Math.floor(baseConfig.letterPuzzleCount * multiplier)) : 0,
+            chinesePuzzleCount: baseConfig.chinesePuzzleCount ? Math.max(1, Math.floor(baseConfig.chinesePuzzleCount * multiplier)) : 0
+        };
+
         // 随机生成猫咪起始位置（在边缘）
         const catPos = this.getRandomEdgePosition();
-        
+
         // 随机生成家的位置（在对面边缘）
         const homePos = this.getOppositeEdgePosition(catPos);
-        
+
         // 创建统一的已占用位置集合 - 这是关键！确保所有元素不会重叠
         const occupied = new Set([
             `${catPos.x},${catPos.y}`,
             `${homePos.x},${homePos.y}`
         ]);
-        
+
         // 先生成墙壁（墙壁是固定的障碍物）
         const walls = this.generateRandomWalls(config.wallCount, catPos, homePos, occupied);
         walls.forEach(w => occupied.add(`${w.x},${w.y}`));
-        
+
         // 生成关卡基础结构
         const level = {
             name: config.name,
@@ -118,13 +246,13 @@ class CatGame {
             puzzles: [],
             message: config.message
         };
-        
+
         // 生成星星（使用统一的occupied集合）
         if (config.starCount > 0) {
             level.stars = this.generateRandomStars(config.starCount, occupied);
             level.stars.forEach(s => occupied.add(`${s.x},${s.y}`));
         }
-        
+
         // 生成门和钥匙
         if (config.hasKeys && config.doorCount > 0) {
             const doorKeyPairs = this.generateRandomDoorsAndKeys(config.doorCount, occupied);
@@ -133,28 +261,28 @@ class CatGame {
             level.doors.forEach(d => occupied.add(`${d.x},${d.y}`));
             level.keys.forEach(k => occupied.add(`${k.x},${k.y}`));
         }
-        
+
         // 生成数学题
         if (config.hasMathPuzzles && config.mathPuzzleCount > 0) {
             const mathPuzzles = this.generateMathPuzzles(config.mathPuzzleCount, occupied);
             level.puzzles = level.puzzles.concat(mathPuzzles);
             mathPuzzles.forEach(p => occupied.add(`${p.x},${p.y}`));
         }
-        
+
         // 生成字母题
         if (config.hasLetterPuzzles && config.letterPuzzleCount > 0) {
             const letterPuzzles = this.generateLetterPuzzles(config.letterPuzzleCount, occupied);
             level.puzzles = level.puzzles.concat(letterPuzzles);
             letterPuzzles.forEach(p => occupied.add(`${p.x},${p.y}`));
         }
-        
+
         // 生成汉字题
         if (config.hasChinesePuzzles && config.chinesePuzzleCount > 0) {
             const chinesePuzzles = this.generateChinesePuzzles(config.chinesePuzzleCount, occupied);
             level.puzzles = level.puzzles.concat(chinesePuzzles);
             chinesePuzzles.forEach(p => occupied.add(`${p.x},${p.y}`));
         }
-        
+
         return level;
     }
     
@@ -464,7 +592,15 @@ class CatGame {
         document.getElementById('nextLevelBtn').addEventListener('click', () => this.nextLevel());
         document.getElementById('replayBtn').addEventListener('click', () => this.restartLevel());
         document.getElementById('playAgainBtn').addEventListener('click', () => this.resetGame());
-        
+
+        // 难度选择按钮
+        document.querySelectorAll('.difficulty-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const difficulty = e.currentTarget.dataset.difficulty;
+                this.selectDifficulty(difficulty);
+            });
+        });
+
         // 鼠标点击事件
         this.canvas.addEventListener('click', (e) => {
             if (this.gameState === 'playing') this.handleCanvasClick(e);
@@ -474,6 +610,24 @@ class CatGame {
         this.setupTouchEvents();
 
         this.bindPuzzleEvents();
+    }
+
+    // 选择难度
+    selectDifficulty(difficulty) {
+        this.difficulty = difficulty;
+        this.setDifficulty(difficulty);
+
+        // 更新UI
+        document.querySelectorAll('.difficulty-btn').forEach(btn => {
+            btn.classList.remove('active');
+            if (btn.dataset.difficulty === difficulty) {
+                btn.classList.add('active');
+            }
+        });
+
+        // 显示提示
+        const difficultyNames = { easy: '简单', medium: '中等', hard: '高阶' };
+        this.showMessage(`已选择${difficultyNames[difficulty]}难度`, '🎯');
     }
 
     // 设置移动端触摸事件
@@ -892,6 +1046,7 @@ class CatGame {
     
     startScreen() {
         this.showScreen('startScreen');
+        this.renderLevelGrid();
     }
     
     startGame() {
@@ -927,6 +1082,12 @@ class CatGame {
         this.gameState = 'levelComplete';
         const starsEarned = this.calculateLevelStars();
         this.updateLevelCompleteScreen(starsEarned);
+
+        // 解锁下一关
+        if (this.currentLevel < this.maxLevels) {
+            this.unlockLevel(this.currentLevel + 1);
+        }
+
         this.showScreen('levelCompleteScreen');
     }
     
@@ -991,6 +1152,10 @@ class CatGame {
         this.currentLevel = 1;
         this.score = 0;
         this.starsCollected = 0;
+        // 重置关卡进度
+        this.unlockedLevels = [1];
+        this.saveUnlockedLevels();
+        this.renderLevelGrid();
         this.loadLevel(1);
         this.showScreen('gameScreen');
         this.gameState = 'playing';

@@ -35,6 +35,37 @@
                     <div class="cat-mascot">🐱</div>
                     <h2>猫咪找家大冒险</h2>
                     <p class="story">小猫咪迷路了，你能帮助它找到回家的路吗？</p>
+
+                    <!-- 难度选择 -->
+                    <div class="difficulty-selector">
+                        <h3>选择难度</h3>
+                        <div class="difficulty-options">
+                            <button class="difficulty-btn" data-difficulty="easy">
+                                <span class="difficulty-icon">🌱</span>
+                                <span class="difficulty-name">简单</span>
+                                <span class="difficulty-desc">适合初学者</span>
+                            </button>
+                            <button class="difficulty-btn active" data-difficulty="medium">
+                                <span class="difficulty-icon">🌿</span>
+                                <span class="difficulty-name">中等</span>
+                                <span class="difficulty-desc">有挑战性</span>
+                            </button>
+                            <button class="difficulty-btn" data-difficulty="hard">
+                                <span class="difficulty-icon">🌳</span>
+                                <span class="difficulty-name">高阶</span>
+                                <span class="difficulty-desc">大师级别</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 关卡选择 -->
+                    <div class="level-selector">
+                        <h3>选择关卡</h3>
+                        <div id="levelGrid" class="level-grid">
+                            <!-- 动态生成关卡按钮 -->
+                        </div>
+                    </div>
+
                     <div class="features">
                         <div class="feature">
                             <span class="feature-icon">🔢</span>
