@@ -303,7 +303,7 @@ class CatGame {
         const puzzles = [];
         let attempts = 0;
         const maxAttempts = 200;
-        
+
         const mathTemplates = [
             { min: 1, max: 5, type: 'add' },
             { min: 2, max: 5, type: 'add' },
@@ -314,28 +314,30 @@ class CatGame {
             { min: 2, max: 4, type: 'sub' },
             { min: 3, max: 5, type: 'sub' }
         ];
-        
+
         while (puzzles.length < count && attempts < maxAttempts) {
             const x = Math.floor(Math.random() * this.gridWidth);
             const y = Math.floor(Math.random() * this.gridHeight);
             const key = `${x},${y}`;
-            
+
             if (!occupied.has(key)) {
                 const template = mathTemplates[Math.floor(Math.random() * mathTemplates.length)];
-                let question, answer, options;
-                
+                let question, answer, options, audioText;
+
                 if (template.type === 'add') {
                     const a = Math.floor(Math.random() * (template.max - template.min + 1)) + template.min;
                     const b = Math.floor(Math.random() * (template.max - template.min + 1)) + template.min;
                     question = `${a} + ${b} = ?`;
                     answer = String(a + b);
+                    audioText = `${a}加${b}等于多少？`;
                 } else {
                     const a = Math.floor(Math.random() * (template.max - template.min + 1)) + template.min + 2;
                     const b = Math.floor(Math.random() * (template.min + 1)) + 1;
                     question = `${a} - ${b} = ?`;
                     answer = String(a - b);
+                    audioText = `${a}减${b}等于多少？`;
                 }
-                
+
                 // 生成选项
                 const ans = parseInt(answer);
                 options = [String(ans)];
@@ -347,10 +349,10 @@ class CatGame {
                     }
                 }
                 options.sort(() => Math.random() - 0.5);
-                
+
                 puzzles.push({
                     x, y, type: 'math', solved: false,
-                    question, answer, options
+                    question, answer, options, audioText
                 });
                 occupied.add(key);
             }
@@ -364,26 +366,26 @@ class CatGame {
         const puzzles = [];
         let attempts = 0;
         const maxAttempts = 200;
-        
+
         const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
         const letterTemplates = [
-            { type: 'next', question: (l) => `${l} 后面是什么字母？` },
-            { type: 'prev', question: (l) => `${l} 前面是什么字母？` },
-            { type: 'identify', question: (l) => `哪个是字母 ${l}？` }
+            { type: 'next', question: (l) => `${l} 后面是什么字母？`, audio: (l) => `字母${l}后面是什么字母？` },
+            { type: 'prev', question: (l) => `${l} 前面是什么字母？`, audio: (l) => `字母${l}前面是什么字母？` },
+            { type: 'identify', question: (l) => `哪个是字母 ${l}？`, audio: (l) => `哪个是字母${l}？` }
         ];
-        
+
         while (puzzles.length < count && attempts < maxAttempts) {
             const x = Math.floor(Math.random() * this.gridWidth);
             const y = Math.floor(Math.random() * this.gridHeight);
             const key = `${x},${y}`;
-            
+
             if (!occupied.has(key)) {
                 const template = letterTemplates[Math.floor(Math.random() * letterTemplates.length)];
                 const letterIndex = Math.floor(Math.random() * 5) + 1; // B到F
                 const letter = letters[letterIndex];
-                
+
                 let answer, options;
-                
+
                 if (template.type === 'next') {
                     answer = letters[letterIndex + 1];
                     options = [letters[letterIndex], answer, letters[letterIndex + 2]];
@@ -394,13 +396,14 @@ class CatGame {
                     answer = letter;
                     options = [letters[letterIndex - 1], answer, letters[letterIndex + 1]];
                 }
-                
+
                 options.sort(() => Math.random() - 0.5);
-                
+
                 puzzles.push({
                     x, y, type: 'letter', solved: false,
                     question: template.question(letter),
-                    answer, options
+                    answer, options,
+                    audioText: template.audio(letter)
                 });
                 occupied.add(key);
             }
@@ -408,40 +411,41 @@ class CatGame {
         }
         return puzzles;
     }
-    
+
     // 生成汉字题 - 使用统一的occupied集合
     generateChinesePuzzles(count, occupied) {
         const puzzles = [];
         let attempts = 0;
         const maxAttempts = 200;
-        
+
         // 随机选择汉字
         const shuffledChars = [...this.chineseCharacters].sort(() => Math.random() - 0.5);
         let charIndex = 0;
-        
+
         while (puzzles.length < count && charIndex < shuffledChars.length && attempts < maxAttempts) {
             const x = Math.floor(Math.random() * this.gridWidth);
             const y = Math.floor(Math.random() * this.gridHeight);
             const key = `${x},${y}`;
-            
+
             if (!occupied.has(key)) {
                 const charData = shuffledChars[charIndex];
-                
+
                 // 生成干扰选项
                 const otherChars = this.chineseCharacters
                     .filter(c => c.char !== charData.char)
                     .sort(() => Math.random() - 0.5)
                     .slice(0, 2);
-                
+
                 const options = [charData.char, ...otherChars.map(c => c.char)];
                 options.sort(() => Math.random() - 0.5);
-                
+
                 puzzles.push({
                     x, y, type: 'chinese', solved: false,
                     question: `这是什么字？`,
                     emoji: charData.emoji,
                     answer: charData.char,
-                    options
+                    options,
+                    audioText: `这是什么字？这是${charData.name}的${charData.char}字。`
                 });
                 occupied.add(key);
                 charIndex++;
@@ -568,6 +572,62 @@ class CatGame {
     bindPuzzleEvents() {
         document.getElementById('closePuzzleBtn').addEventListener('click', () => this.hidePuzzleModal());
         document.getElementById('hintBtn').addEventListener('click', () => this.showHint());
+
+        // 绑定播放按钮事件
+        const playBtn = document.getElementById('playAudioBtn');
+        if (playBtn) {
+            playBtn.addEventListener('click', () => this.playPuzzleAudio());
+        }
+    }
+
+    // 播放题目语音
+    playPuzzleAudio() {
+        if (!this.currentPuzzle || !this.currentPuzzle.audioText) return;
+
+        // 检查浏览器是否支持语音合成
+        if (!window.speechSynthesis) {
+            console.log('浏览器不支持语音合成');
+            return;
+        }
+
+        // 停止当前播放的语音
+        window.speechSynthesis.cancel();
+
+        // 创建语音合成实例
+        const utterance = new SpeechSynthesisUtterance(this.currentPuzzle.audioText);
+
+        // 设置语音参数
+        utterance.lang = 'zh-CN';
+        utterance.rate = 0.9; // 稍慢一点，适合儿童
+        utterance.pitch = 1.1; // 稍高一点，更亲切
+        utterance.volume = 1.0;
+
+        // 更新按钮状态
+        const playBtn = document.getElementById('playAudioBtn');
+        if (playBtn) {
+            playBtn.classList.add('playing');
+            playBtn.querySelector('.play-text').textContent = '播放中...';
+        }
+
+        // 语音结束回调
+        utterance.onend = () => {
+            if (playBtn) {
+                playBtn.classList.remove('playing');
+                playBtn.querySelector('.play-text').textContent = '播放';
+            }
+        };
+
+        // 语音错误回调
+        utterance.onerror = (event) => {
+            console.log('语音播放错误:', event.error);
+            if (playBtn) {
+                playBtn.classList.remove('playing');
+                playBtn.querySelector('.play-text').textContent = '播放';
+            }
+        };
+
+        // 播放语音
+        window.speechSynthesis.speak(utterance);
     }
     
     handleCanvasClick(e) {
@@ -652,11 +712,28 @@ class CatGame {
         hintTextEl.classList.add('hidden');
         document.getElementById('hintBtn').disabled = false;
         document.getElementById('hintBtn').textContent = '💡 提示';
-        
+
+        // 重置播放按钮状态
+        const playBtn = document.getElementById('playAudioBtn');
+        if (playBtn) {
+            playBtn.classList.remove('playing');
+            playBtn.querySelector('.play-text').textContent = '播放';
+        }
+
         modal.classList.remove('hidden');
+
+        // 延迟自动播放语音，让用户有时间看到弹窗
+        setTimeout(() => {
+            this.playPuzzleAudio();
+        }, 300);
     }
     
     hidePuzzleModal() {
+        // 停止语音播放
+        if (window.speechSynthesis) {
+            window.speechSynthesis.cancel();
+        }
+
         document.getElementById('puzzleModal').classList.add('hidden');
         this.gameState = 'playing';
         this.currentPuzzle = null;

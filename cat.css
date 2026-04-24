@@ -395,15 +395,71 @@ body {
     margin-bottom: 25px;
 }
 
+.question-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 15px;
+    margin-bottom: 25px;
+}
+
 .puzzle-question {
     font-size: 2rem;
     color: #333;
     font-weight: bold;
-    margin-bottom: 25px;
     padding: 20px;
     background: linear-gradient(135deg, #E8F4FD 0%, #FFF 100%);
     border-radius: 15px;
     border: 3px solid #B8E0F0;
+    width: 100%;
+}
+
+/* 播放按钮样式 */
+.play-audio-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 20px;
+    font-size: 1rem;
+    font-weight: bold;
+    border: 2px solid #4A90E2;
+    border-radius: 25px;
+    background: linear-gradient(135deg, #E8F4FD 0%, #FFF 100%);
+    color: #4A90E2;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-family: inherit;
+}
+
+.play-audio-btn:hover {
+    background: linear-gradient(135deg, #4A90E2 0%, #6BA5E7 100%);
+    color: white;
+    transform: scale(1.05);
+    box-shadow: 0 5px 15px rgba(74, 144, 226, 0.4);
+}
+
+.play-audio-btn:active {
+    transform: scale(0.95);
+}
+
+.play-audio-btn.playing {
+    background: linear-gradient(135deg, #7ED321 0%, #9BE04D 100%);
+    border-color: #7ED321;
+    color: white;
+    animation: pulse 1s ease infinite;
+}
+
+.play-icon {
+    font-size: 1.2rem;
+}
+
+.play-text {
+    font-size: 0.9rem;
+}
+
+@keyframes pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.05); }
 }
 
 .puzzle-options {

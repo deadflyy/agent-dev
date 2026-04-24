@@ -84,7 +84,13 @@
                         <button id="closePuzzleBtn" class="close-btn">✕</button>
                     </div>
                     <div class="puzzle-body">
-                        <p id="puzzleQuestion" class="puzzle-question">1 + 2 = ?</p>
+                        <div class="question-container">
+                            <p id="puzzleQuestion" class="puzzle-question">1 + 2 = ?</p>
+                            <button id="playAudioBtn" class="play-audio-btn" title="播放题目">
+                                <span class="play-icon">🔊</span>
+                                <span class="play-text">播放</span>
+                            </button>
+                        </div>
                         <div id="puzzleOptions" class="puzzle-options">
                             <button class="answer-option" data-answer="2">2</button>
                             <button class="answer-option" data-answer="3">3</button>
