@@ -951,6 +951,83 @@ body {
     .stat-value {
         font-size: 1.5rem;
     }
+
+    /* 移动端难度选择优化 */
+    .difficulty-selector {
+        padding: 15px 10px;
+        margin: 15px 0;
+    }
+
+    .difficulty-selector h3 {
+        font-size: 1rem;
+        margin-bottom: 10px;
+    }
+
+    .difficulty-options {
+        gap: 8px;
+    }
+
+    .difficulty-btn {
+        padding: 10px 12px;
+        min-width: 70px;
+        border-width: 2px;
+    }
+
+    .difficulty-icon {
+        font-size: 1.5rem;
+    }
+
+    .difficulty-name {
+        font-size: 0.85rem;
+    }
+
+    .difficulty-desc {
+        font-size: 0.65rem;
+    }
+
+    /* 移动端难度选中效果强化 */
+    .difficulty-btn.active {
+        border-width: 3px;
+        box-shadow: 0 0 15px rgba(255, 107, 107, 0.5);
+    }
+
+    /* 移动端关卡选择优化 */
+    .level-selector {
+        padding: 15px 10px;
+        margin: 15px 0;
+    }
+
+    .level-selector h3 {
+        font-size: 1rem;
+        margin-bottom: 10px;
+    }
+
+    .level-grid {
+        grid-template-columns: repeat(5, 1fr);
+        gap: 8px;
+        max-width: 100%;
+        padding: 0 5px;
+    }
+
+    .level-btn {
+        border-width: 2px;
+        border-radius: 8px;
+        min-height: 50px;
+    }
+
+    .level-number {
+        font-size: 1rem;
+    }
+
+    .level-status {
+        font-size: 0.65rem;
+    }
+
+    /* 移动端关卡选中效果强化 */
+    .level-btn.current {
+        border-width: 3px;
+        box-shadow: 0 0 10px rgba(255, 107, 107, 0.6);
+    }
 }
 
 /* 装饰性背景动画 */

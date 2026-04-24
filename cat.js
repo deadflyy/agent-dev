@@ -172,7 +172,14 @@ class CatGame {
             `;
 
             if (isUnlocked) {
-                btn.addEventListener('click', () => this.selectLevel(i));
+                // 同时支持点击和触摸事件
+                const handleLevelSelect = (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    this.selectLevel(i);
+                };
+                btn.addEventListener('click', handleLevelSelect);
+                btn.addEventListener('touchend', handleLevelSelect);
             }
 
             levelGrid.appendChild(btn);
@@ -593,12 +600,17 @@ class CatGame {
         document.getElementById('replayBtn').addEventListener('click', () => this.restartLevel());
         document.getElementById('playAgainBtn').addEventListener('click', () => this.resetGame());
 
-        // 难度选择按钮
+        // 难度选择按钮 - 同时支持点击和触摸
         document.querySelectorAll('.difficulty-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                const difficulty = e.currentTarget.dataset.difficulty;
+            const handleDifficultySelect = (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const difficulty = btn.dataset.difficulty;
                 this.selectDifficulty(difficulty);
-            });
+            };
+
+            btn.addEventListener('click', handleDifficultySelect);
+            btn.addEventListener('touchend', handleDifficultySelect);
         });
 
         // 鼠标点击事件
