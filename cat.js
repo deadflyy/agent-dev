@@ -457,22 +457,114 @@ class CatGame {
         document.getElementById('replayBtn').addEventListener('click', () => this.restartLevel());
         document.getElementById('playAgainBtn').addEventListener('click', () => this.resetGame());
         
+        // 鼠标点击事件
         this.canvas.addEventListener('click', (e) => {
             if (this.gameState === 'playing') this.handleCanvasClick(e);
         });
-        
-        this.canvas.addEventListener('touchstart', (e) => {
-            e.preventDefault();
-            if (this.gameState === 'playing') {
-                const touch = e.touches[0];
-                const rect = this.canvas.getBoundingClientRect();
-                this.handleCanvasClick({ clientX: touch.clientX, clientY: touch.clientY });
-            }
-        });
-        
+
+        // 优化移动端触摸体验
+        this.setupTouchEvents();
+
         this.bindPuzzleEvents();
     }
-    
+
+    // 设置移动端触摸事件
+    setupTouchEvents() {
+        let touchStartX = 0;
+        let touchStartY = 0;
+        let touchStartTime = 0;
+
+        this.canvas.addEventListener('touchstart', (e) => {
+            if (this.gameState !== 'playing') return;
+
+            const touch = e.touches[0];
+            touchStartX = touch.clientX;
+            touchStartY = touch.clientY;
+            touchStartTime = Date.now();
+
+            // 显示触摸反馈
+            this.showTouchFeedback(touchStartX, touchStartY);
+        }, { passive: false });
+
+        this.canvas.addEventListener('touchend', (e) => {
+            if (this.gameState !== 'playing') return;
+
+            const touch = e.changedTouches[0];
+            const touchEndX = touch.clientX;
+            const touchEndY = touch.clientY;
+            const touchDuration = Date.now() - touchStartTime;
+
+            // 计算触摸偏移
+            const deltaX = Math.abs(touchEndX - touchStartX);
+            const deltaY = Math.abs(touchEndY - touchStartY);
+
+            // 如果是短触摸且偏移小，视为点击
+            if (touchDuration < 300 && deltaX < 10 && deltaY < 10) {
+                e.preventDefault();
+                const rect = this.canvas.getBoundingClientRect();
+                const scaleX = this.canvas.width / rect.width;
+                const scaleY = this.canvas.height / rect.height;
+
+                const x = Math.floor((touchEndX - rect.left) * scaleX / this.tileSize);
+                const y = Math.floor((touchEndY - rect.top) * scaleY / this.tileSize);
+
+                this.handleGridClick(x, y);
+            }
+        }, { passive: false });
+
+        // 防止触摸时的页面滚动
+        this.canvas.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+        }, { passive: false });
+    }
+
+    // 显示触摸反馈效果
+    showTouchFeedback(clientX, clientY) {
+        const rect = this.canvas.getBoundingClientRect();
+        const scaleX = this.canvas.width / rect.width;
+        const scaleY = this.canvas.height / rect.height;
+
+        const x = Math.floor((clientX - rect.left) * scaleX / this.tileSize);
+        const y = Math.floor((clientY - rect.top) * scaleY / this.tileSize);
+
+        // 创建触摸反馈粒子效果
+        if (x >= 0 && x < this.gridWidth && y >= 0 && y < this.gridHeight) {
+            for (let i = 0; i < 4; i++) {
+                this.particles.push({
+                    x: x * this.tileSize + this.tileSize / 2,
+                    y: y * this.tileSize + this.tileSize / 2,
+                    vx: (Math.random() - 0.5) * 2,
+                    vy: (Math.random() - 0.5) * 2,
+                    life: 15,
+                    color: 'rgba(255, 158, 181, 0.6)',
+                    size: Math.random() * 4 + 2
+                });
+            }
+        }
+    }
+
+    // 处理格子点击（统一处理鼠标和触摸）
+    handleGridClick(x, y) {
+        // 检查边界
+        if (x < 0 || x >= this.gridWidth || y < 0 || y >= this.gridHeight) return;
+
+        // 检查谜题
+        if (this.currentLevelData.puzzles) {
+            const puzzle = this.currentLevelData.puzzles.find(p =>
+                p.x === x && p.y === y && !p.solved
+            );
+            if (puzzle && this.isAdjacent(this.cat.x, this.cat.y, x, y)) {
+                this.pendingMove = { x, y };
+                this.showPuzzleModal(puzzle);
+                return;
+            }
+        }
+
+        if (this.isValidMove(x, y)) {
+            this.moveCat(x, y);
+        }
+    }
+
     bindPuzzleEvents() {
         document.getElementById('closePuzzleBtn').addEventListener('click', () => this.hidePuzzleModal());
         document.getElementById('hintBtn').addEventListener('click', () => this.showHint());
@@ -971,36 +1063,110 @@ class CatGame {
     drawDoor(x, y, color, open) {
         const px = x * this.tileSize;
         const py = y * this.tileSize;
+        const centerX = px + this.tileSize / 2;
+        const centerY = py + this.tileSize / 2;
+
         const colors = {
-            red: this.colors.doorRed,
-            blue: this.colors.doorBlue,
-            green: this.colors.doorGreen,
-            yellow: this.colors.doorYellow
+            red: { main: '#FF6B6B', dark: '#E55A5A', light: '#FF8787' },
+            blue: { main: '#4A90E2', dark: '#3A7BC8', light: '#6BA5E7' },
+            green: { main: '#7ED321', dark: '#6ABF1A', light: '#9BE04D' },
+            yellow: { main: '#F5A623', dark: '#E09000', light: '#FFC447' }
         };
-        
+
+        const c = colors[color] || colors.red;
+
         if (open) {
-            this.ctx.fillStyle = colors[color] + '40';
-            this.ctx.fillRect(px + 5, py + 5, this.tileSize - 10, this.tileSize - 10);
-            
-            this.ctx.fillStyle = colors[color];
-            this.ctx.font = '20px Arial';
+            // 打开的门 - 半透明效果
+            this.ctx.fillStyle = c.main + '30';
+            this.ctx.fillRect(px + 8, py + 8, this.tileSize - 16, this.tileSize - 16);
+
+            // 打开的门图标
+            this.ctx.fillStyle = c.main;
+            this.ctx.font = 'bold 16px Arial';
             this.ctx.textAlign = 'center';
             this.ctx.textBaseline = 'middle';
-            this.ctx.fillText('✓', px + this.tileSize / 2, py + this.tileSize / 2);
+            this.ctx.fillText('🔓', centerX, centerY);
         } else {
-            this.ctx.fillStyle = colors[color];
-            this.ctx.fillRect(px + 3, py + 3, this.tileSize - 6, this.tileSize - 6);
-            
-            this.ctx.fillStyle = '#FFD700';
-            this.ctx.beginPath();
-            this.ctx.arc(px + this.tileSize / 2, py + this.tileSize / 2, 8, 0, Math.PI * 2);
+            // 绘制门锁外框（圆角矩形）
+            const framePadding = 4;
+            const frameWidth = this.tileSize - framePadding * 2;
+            const frameHeight = this.tileSize - framePadding * 2;
+
+            // 外框阴影
+            this.ctx.fillStyle = 'rgba(0,0,0,0.2)';
+            this.roundRect(px + framePadding + 2, py + framePadding + 2, frameWidth, frameHeight, 8);
             this.ctx.fill();
-            
-            this.ctx.fillStyle = '#333';
-            this.ctx.beginPath();
-            this.ctx.arc(px + this.tileSize / 2, py + this.tileSize / 2 - 2, 3, 0, Math.PI * 2);
+
+            // 外框主体
+            const gradient = this.ctx.createLinearGradient(px, py, px, py + this.tileSize);
+            gradient.addColorStop(0, c.light);
+            gradient.addColorStop(0.5, c.main);
+            gradient.addColorStop(1, c.dark);
+            this.ctx.fillStyle = gradient;
+            this.roundRect(px + framePadding, py + framePadding, frameWidth, frameHeight, 8);
             this.ctx.fill();
+
+            // 外框边框
+            this.ctx.strokeStyle = c.dark;
+            this.ctx.lineWidth = 2;
+            this.roundRect(px + framePadding, py + framePadding, frameWidth, frameHeight, 8);
+            this.ctx.stroke();
+
+            // 绘制锁孔（钥匙孔形状）
+            const lockX = centerX;
+            const lockY = centerY - 2;
+
+            // 锁孔上半部分（圆形）
+            this.ctx.fillStyle = '#2C3E50';
+            this.ctx.beginPath();
+            this.ctx.arc(lockX, lockY - 3, 7, 0, Math.PI * 2);
+            this.ctx.fill();
+
+            // 锁孔下半部分（梯形）
+            this.ctx.beginPath();
+            this.ctx.moveTo(lockX - 4, lockY + 2);
+            this.ctx.lineTo(lockX + 4, lockY + 2);
+            this.ctx.lineTo(lockX + 3, lockY + 12);
+            this.ctx.lineTo(lockX - 3, lockY + 12);
+            this.ctx.closePath();
+            this.ctx.fill();
+
+            // 锁孔高光
+            this.ctx.fillStyle = '#5D6D7E';
+            this.ctx.beginPath();
+            this.ctx.arc(lockX - 2, lockY - 5, 2, 0, Math.PI * 2);
+            this.ctx.fill();
+
+            // 绘制锁钩（顶部半圆）
+            this.ctx.strokeStyle = '#BDC3C7';
+            this.ctx.lineWidth = 4;
+            this.ctx.lineCap = 'round';
+            this.ctx.beginPath();
+            this.ctx.arc(centerX, py + 12, 10, Math.PI, 0);
+            this.ctx.stroke();
+
+            // 锁钩内侧阴影
+            this.ctx.strokeStyle = '#95A5A6';
+            this.ctx.lineWidth = 2;
+            this.ctx.beginPath();
+            this.ctx.arc(centerX, py + 12, 8, Math.PI, 0);
+            this.ctx.stroke();
         }
+    }
+
+    // 绘制圆角矩形辅助方法
+    roundRect(x, y, width, height, radius) {
+        this.ctx.beginPath();
+        this.ctx.moveTo(x + radius, y);
+        this.ctx.lineTo(x + width - radius, y);
+        this.ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+        this.ctx.lineTo(x + width, y + height - radius);
+        this.ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+        this.ctx.lineTo(x + radius, y + height);
+        this.ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+        this.ctx.lineTo(x, y + radius);
+        this.ctx.quadraticCurveTo(x, y, x + radius, y);
+        this.ctx.closePath();
     }
     
     drawHome(x, y) {
@@ -1042,13 +1208,61 @@ class CatGame {
         const px = x * this.tileSize + this.tileSize / 2;
         const py = y * this.tileSize + this.tileSize / 2;
         const bounce = Math.sin(this.animationFrame * 0.12) * 2;
-        
-        const keyEmojis = { red: '🔴', blue: '🔵', green: '🟢', yellow: '🟡' };
-        
-        this.ctx.font = '24px Arial';
-        this.ctx.textAlign = 'center';
-        this.ctx.textBaseline = 'middle';
-        this.ctx.fillText(keyEmojis[color] || '🔑', px, py + bounce);
+        const keyY = py + bounce;
+
+        const colors = {
+            red: { main: '#FF6B6B', dark: '#E55A5A', light: '#FF8787' },
+            blue: { main: '#4A90E2', dark: '#3A7BC8', light: '#6BA5E7' },
+            green: { main: '#7ED321', dark: '#6ABF1A', light: '#9BE04D' },
+            yellow: { main: '#F5A623', dark: '#E09000', light: '#FFC447' }
+        };
+
+        const c = colors[color] || colors.red;
+
+        // 绘制钥匙阴影
+        this.ctx.fillStyle = 'rgba(0,0,0,0.15)';
+        this.drawKeyShape(px + 2, keyY + 2, c.dark);
+        this.ctx.fill();
+
+        // 绘制钥匙主体
+        const gradient = this.ctx.createLinearGradient(px - 15, keyY - 15, px + 15, keyY + 15);
+        gradient.addColorStop(0, c.light);
+        gradient.addColorStop(0.5, c.main);
+        gradient.addColorStop(1, c.dark);
+        this.ctx.fillStyle = gradient;
+        this.drawKeyShape(px, keyY, c.main);
+        this.ctx.fill();
+
+        // 绘制钥匙边框
+        this.ctx.strokeStyle = c.dark;
+        this.ctx.lineWidth = 1.5;
+        this.drawKeyShape(px, keyY, c.main);
+        this.ctx.stroke();
+
+        // 绘制钥匙高光
+        this.ctx.fillStyle = 'rgba(255,255,255,0.4)';
+        this.ctx.beginPath();
+        this.ctx.ellipse(px - 5, keyY - 8, 4, 6, -0.3, 0, Math.PI * 2);
+        this.ctx.fill();
+    }
+
+    // 绘制钥匙形状辅助方法
+    drawKeyShape(cx, cy, color) {
+        this.ctx.beginPath();
+
+        // 钥匙头部（圆形）
+        const headRadius = 10;
+        this.ctx.arc(cx - 8, cy, headRadius, 0, Math.PI * 2);
+
+        // 钥匙杆
+        this.ctx.rect(cx - 8, cy - 3, 20, 6);
+
+        // 钥匙齿（三个小矩形）
+        this.ctx.rect(cx + 8, cy - 1, 4, 6);
+        this.ctx.rect(cx + 12, cy - 3, 3, 5);
+        this.ctx.rect(cx + 15, cy - 1, 3, 4);
+
+        this.ctx.closePath();
     }
     
     drawCat() {

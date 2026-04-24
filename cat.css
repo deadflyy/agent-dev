@@ -619,63 +619,103 @@ body {
     flex-wrap: wrap;
 }
 
+/* 移动端触摸优化 */
+#gameCanvas {
+    touch-action: none;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    -khtml-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+    cursor: pointer;
+}
+
+#gameCanvas:active {
+    transform: scale(0.98);
+    transition: transform 0.1s ease;
+}
+
+/* 触摸反馈动画 */
+@keyframes touchFeedback {
+    0% { transform: scale(1); opacity: 0.6; }
+    50% { transform: scale(1.2); opacity: 0.3; }
+    100% { transform: scale(1.5); opacity: 0; }
+}
+
+.touch-feedback {
+    position: absolute;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(255, 158, 181, 0.6) 0%, transparent 70%);
+    pointer-events: none;
+    animation: touchFeedback 0.4s ease-out forwards;
+}
+
 /* 响应式设计 */
 @media (max-width: 600px) {
     .game-header {
         padding: 10px 15px;
     }
-    
+
     .game-header h1 {
         font-size: 1.2rem;
     }
-    
+
     .score-display,
     .level-display {
         padding: 6px 12px;
         font-size: 0.9rem;
     }
-    
+
     .start-content,
     .complete-content {
         padding: 30px 20px;
     }
-    
+
     .cat-mascot {
         font-size: 4rem;
     }
-    
+
     .start-content h2,
     .complete-content h2 {
         font-size: 1.5rem;
     }
-    
+
     .features {
         gap: 10px;
     }
-    
+
     .feature {
         padding: 10px 12px;
         min-width: 75px;
     }
-    
+
     .feature-icon {
         font-size: 1.8rem;
     }
-    
+
     .feature span:last-child {
         font-size: 0.8rem;
     }
-    
+
     .btn {
         padding: 12px 30px;
         font-size: 1rem;
     }
-    
+
     #gameCanvas {
         max-width: 100%;
         height: auto;
+        touch-action: none;
     }
-    
+
+    /* 移动端游戏区域优化 */
+    .game-area {
+        padding: 10px;
+    }
+
     .puzzle-content {
         padding: 20px;
         margin: 20px;
