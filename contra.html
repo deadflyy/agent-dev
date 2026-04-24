@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>魂斗罗 - Contra</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="game-container">
+        <header class="game-header">
+            <a href="index.html" class="back-link">← 返回</a>
+            <h1>魂斗罗</h1>
+            <div class="score-panel">
+                <div class="score-item">
+                    <span class="label">得分</span>
+                    <span class="value" id="score">0</span>
+                </div>
+                <div class="score-item">
+                    <span class="label">生命</span>
+                    <span class="value" id="lives">3</span>
+                </div>
+                <div class="score-item">
+                    <span class="label">关卡</span>
+                    <span class="value" id="level">1</span>
+                </div>
+            </div>
+        </header>
+
+        <main class="game-main">
+            <div class="game-area">
+                <canvas id="gameCanvas"></canvas>
+                <div class="game-overlay" id="gameOverlay">
+                    <div class="overlay-content">
+                        <h2 id="overlayTitle">游戏开始</h2>
+                        <p id="overlayText">按空格键或点击按钮开始游戏</p>
+                        <button class="btn btn-primary" id="startBtn">开始游戏</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="game-sidebar">
+                <div class="controls-info">
+                    <h3>操作说明</h3>
+                    <div class="control-item">
+                        <span class="key">WASD / 方向键</span>
+                        <span>移动角色</span>
+                    </div>
+                    <div class="control-item">
+                        <span class="key">K / Z</span>
+                        <span>跳跃</span>
+                    </div>
+                    <div class="control-item">
+                        <span class="key">J / X</span>
+                        <span>射击</span>
+                    </div>
+                    <div class="control-item">
+                        <span class="key">P</span>
+                        <span>暂停游戏</span>
+                    </div>
+                </div>
+
+                <div class="game-rules">
+                    <h3>游戏规则</h3>
+                    <ul>
+                        <li>消灭所有敌人前进</li>
+                        <li>收集武器道具增强火力</li>
+                        <li>避开陷阱和敌人攻击</li>
+                        <li>到达关卡终点获胜</li>
+                    </ul>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="contra.js"></script>
+</body>
+</html>

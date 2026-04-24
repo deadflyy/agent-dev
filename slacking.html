@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>课堂划水大作战</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="game-container">
+        <header class="game-header">
+            <a href="index.html" class="back-link">← 返回</a>
+            <h1>课堂划水大作战</h1>
+            <div class="score-panel">
+                <div class="score-item">
+                    <span class="label">老师划水值</span>
+                    <span class="value" id="teacherScore">0</span>
+                </div>
+                <div class="score-item">
+                    <span class="label">学生划水值</span>
+                    <span class="value" id="studentScore">0</span>
+                </div>
+                <div class="score-item">
+                    <span class="label">回合</span>
+                    <span class="value" id="roundNum">1/10</span>
+                </div>
+            </div>
+        </header>
+
+        <main class="game-main">
+            <div class="game-area">
+                <canvas id="gameCanvas" style="max-width:100%; height:auto;"></canvas>
+                <div class="game-overlay" id="gameOverlay">
+                    <div class="overlay-content">
+                        <h2 id="overlayTitle">课堂划水大作战</h2>
+                        <p id="overlayText">选择你的角色和难度，开始划水对决！</p>
+                        <div class="role-select">
+                            <button class="btn btn-primary" id="studentBtn">我是学生 👨‍🎓</button>
+                            <button class="btn btn-primary" id="teacherBtn">我是老师 👨‍🏫</button>
+                        </div>
+                        <div class="difficulty-select" style="margin-top:18px; display:flex; gap:10px; justify-content:center;">
+                            <button class="btn btn-diff" data-diff="easy" style="padding:6px 16px; border-radius:15px; border:2px solid #2ecc71; background:transparent; color:#2ecc71; cursor:pointer; font-size:0.85rem;">简单</button>
+                            <button class="btn btn-diff active-diff" data-diff="normal" style="padding:6px 16px; border-radius:15px; border:2px solid #f39c12; background:#f39c12; color:#fff; cursor:pointer; font-size:0.85rem;">普通</button>
+                            <button class="btn btn-diff" data-diff="hard" style="padding:6px 16px; border-radius:15px; border:2px solid #e74c3c; background:transparent; color:#e74c3c; cursor:pointer; font-size:0.85rem;">困难</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="game-overlay hidden" id="resultOverlay">
+                    <div class="overlay-content">
+                        <h2 id="resultTitle">游戏结束</h2>
+                        <p id="resultText"></p>
+                        <button class="btn btn-primary" id="restartBtn">再来一局</button>
+                    </div>
+                </div>
+            </div>
+
+
+        </main>
+    </div>
+
+    <script src="slacking.js"></script>
+</body>
+</html>
