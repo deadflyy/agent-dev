@@ -48,28 +48,32 @@ class CatGame {
             chinesePuzzle: '#FFF0E6'
         };
         
-        // 汉字数据库（适合4岁儿童的简单汉字）
+        // 汉字数据库（适合4岁儿童的简单汉字，仅使用单字）
         this.chineseCharacters = [
-            { char: '猫', emoji: '🐱', name: '猫' },
-            { char: '狗', emoji: '🐶', name: '狗' },
-            { char: '鸟', emoji: '🐦', name: '鸟' },
-            { char: '鱼', emoji: '🐟', name: '鱼' },
-            { char: '花', emoji: '🌸', name: '花' },
-            { char: '树', emoji: '🌳', name: '树' },
-            { char: '草', emoji: '🌿', name: '草' },
-            { char: '太阳', emoji: '☀️', name: '太阳' },
-            { char: '月亮', emoji: '🌙', name: '月亮' },
-            { char: '星星', emoji: '⭐', name: '星星' },
-            { char: '水', emoji: '💧', name: '水' },
-            { char: '火', emoji: '🔥', name: '火' },
-            { char: '山', emoji: '⛰️', name: '山' },
-            { char: '云', emoji: '☁️', name: '云' },
-            { char: '雨', emoji: '🌧️', name: '雨' },
-            { char: '雪', emoji: '❄️', name: '雪' },
-            { char: '苹果', emoji: '🍎', name: '苹果' },
-            { char: '香蕉', emoji: '🍌', name: '香蕉' },
-            { char: '橙子', emoji: '🍊', name: '橙子' },
-            { char: '葡萄', emoji: '🍇', name: '葡萄' }
+            { char: '猫', emoji: '🐱', name: '小猫' },
+            { char: '狗', emoji: '🐶', name: '小狗' },
+            { char: '鸟', emoji: '🐦', name: '小鸟' },
+            { char: '鱼', emoji: '🐟', name: '小鱼' },
+            { char: '花', emoji: '🌸', name: '花朵' },
+            { char: '树', emoji: '🌳', name: '大树' },
+            { char: '草', emoji: '🌿', name: '小草' },
+            { char: '日', emoji: '☀️', name: '太阳' },
+            { char: '月', emoji: '🌙', name: '月亮' },
+            { char: '星', emoji: '⭐', name: '星星' },
+            { char: '水', emoji: '💧', name: '水滴' },
+            { char: '火', emoji: '🔥', name: '火焰' },
+            { char: '山', emoji: '⛰️', name: '大山' },
+            { char: '云', emoji: '☁️', name: '白云' },
+            { char: '雨', emoji: '🌧️', name: '下雨' },
+            { char: '雪', emoji: '❄️', name: '雪花' },
+            { char: '果', emoji: '🍎', name: '苹果' },
+            { char: '瓜', emoji: '�', name: '西瓜' },
+            { char: '米', emoji: '�', name: '米饭' },
+            { char: '面', emoji: '�', name: '面条' },
+            { char: '手', emoji: '✋', name: '小手' },
+            { char: '足', emoji: '🦶', name: '小脚' },
+            { char: '目', emoji: '👁️', name: '眼睛' },
+            { char: '口', emoji: '👄', name: '嘴巴' }
         ];
         
         this.init();
@@ -369,9 +373,9 @@ class CatGame {
 
         const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
         const letterTemplates = [
-            { type: 'next', question: (l) => `${l} 后面是什么字母？`, audio: (l) => `字母${l}后面是什么字母？` },
-            { type: 'prev', question: (l) => `${l} 前面是什么字母？`, audio: (l) => `字母${l}前面是什么字母？` },
-            { type: 'identify', question: (l) => `哪个是字母 ${l}？`, audio: (l) => `哪个是字母${l}？` }
+            { type: 'next', question: (l) => `${l} 后面是什么字母？`, audio: (l) => `字母，${l}，后面是什么字母？` },
+            { type: 'prev', question: (l) => `${l} 前面是什么字母？`, audio: (l) => `字母，${l}，前面是什么字母？` },
+            { type: 'identify', question: (l) => `哪个是字母 ${l}？`, audio: (l) => `哪个是字母，${l}？` }
         ];
 
         while (puzzles.length < count && attempts < maxAttempts) {
