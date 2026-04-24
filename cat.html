@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>猫咪找家大冒险</title>
+    <meta name="description" content="帮助可爱的小猫咪找到回家的路，适合小朋友的益智游戏，包含数学和字母学习">
+    <link rel="stylesheet" href="cat.css">
+</head>
+<body>
+    <div class="game-container">
+        <!-- 游戏头部 -->
+        <header class="game-header">
+            <div class="header-left">
+                <a href="index.html" class="back-btn">🏠</a>
+                <h1>🐱 猫咪找家大冒险</h1>
+            </div>
+            <div class="header-right">
+                <div class="score-display">
+                    <span class="star">⭐</span>
+                    <span id="score">0</span>
+                </div>
+                <div class="level-display">
+                    <span>关卡</span>
+                    <span id="level">1</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- 游戏主区域 -->
+        <main class="game-main">
+            <!-- 开始界面 -->
+            <div id="startScreen" class="screen start-screen">
+                <div class="start-content">
+                    <div class="cat-mascot">🐱</div>
+                    <h2>猫咪找家大冒险</h2>
+                    <p class="story">小猫咪迷路了，你能帮助它找到回家的路吗？</p>
+                    <div class="features">
+                        <div class="feature">
+                            <span class="feature-icon">🔢</span>
+                            <span>数学学习</span>
+                        </div>
+                        <div class="feature">
+                            <span class="feature-icon">🔤</span>
+                            <span>字母认知</span>
+                        </div>
+                        <div class="feature">
+                            <span class="feature-icon">🎨</span>
+                            <span>颜色配对</span>
+                        </div>
+                        <div class="feature">
+                            <span class="feature-icon">⭐</span>
+                            <span>收集星星</span>
+                        </div>
+                    </div>
+                    <button id="startBtn" class="btn btn-primary">
+                        <span class="btn-icon">▶️</span>
+                        开始游戏
+                    </button>
+                </div>
+            </div>
+
+            <!-- 游戏画布 -->
+            <div id="gameScreen" class="screen game-screen hidden">
+                <canvas id="gameCanvas"></canvas>
+                
+                <!-- 游戏UI覆盖层 -->
+                <div class="game-ui">
+                    <div id="messageBox" class="message-box hidden">
+                        <div class="message-content">
+                            <span id="messageIcon">💝</span>
+                            <p id="messageText">太棒了！</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 谜题弹窗 -->
+            <div id="puzzleModal" class="puzzle-modal hidden">
+                <div class="puzzle-content">
+                    <div class="puzzle-header">
+                        <span id="puzzleTypeIcon" class="puzzle-type-icon">🔢</span>
+                        <h3>解答谜题</h3>
+                        <button id="closePuzzleBtn" class="close-btn">✕</button>
+                    </div>
+                    <div class="puzzle-body">
+                        <p id="puzzleQuestion" class="puzzle-question">1 + 2 = ?</p>
+                        <div id="puzzleOptions" class="puzzle-options">
+                            <button class="answer-option" data-answer="2">2</button>
+                            <button class="answer-option" data-answer="3">3</button>
+                            <button class="answer-option" data-answer="4">4</button>
+                        </div>
+                        <div id="hintText" class="hint-text hidden"></div>
+                    </div>
+                    <div class="puzzle-footer">
+                        <button id="hintBtn" class="btn btn-hint">💡 提示</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 关卡完成界面 -->
+            <div id="levelCompleteScreen" class="screen level-complete-screen hidden">
+                <div class="complete-content">
+                    <div class="celebration">
+                        <span class="celebration-emoji">🎉</span>
+                        <span class="celebration-emoji">🌟</span>
+                        <span class="celebration-emoji">🎊</span>
+                    </div>
+                    <h2>关卡完成！</h2>
+                    <div class="stars-earned">
+                        <span class="star earned">⭐</span>
+                        <span class="star earned">⭐</span>
+                        <span class="star earned">⭐</span>
+                    </div>
+                    <p class="encouragement">你真棒！小猫咪很开心！</p>
+                    <div class="complete-buttons">
+                        <button id="nextLevelBtn" class="btn btn-primary">下一关 ▶️</button>
+                        <button id="replayBtn" class="btn btn-secondary">再玩一次 🔄</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 游戏完成界面 -->
+            <div id="gameCompleteScreen" class="screen game-complete-screen hidden">
+                <div class="complete-content">
+                    <div class="cat-family">
+                        <span class="family-cat">🐱</span>
+                        <span class="family-cat">🐱</span>
+                        <span class="family-cat">🐱</span>
+                    </div>
+                    <h2>恭喜通关！</h2>
+                    <p class="story">小猫咪终于回到了温暖的家！</p>
+                    <div class="final-stats">
+                        <div class="stat-item">
+                            <span class="stat-label">总分数</span>
+                            <span id="finalScore" class="stat-value">0</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">收集星星</span>
+                            <span id="totalStars" class="stat-value">0</span>
+                        </div>
+                    </div>
+                    <button id="playAgainBtn" class="btn btn-primary">再玩一次 🎮</button>
+                </div>
+            </div>
+        </main>
+
+        <!-- 游戏说明 -->
+        <footer class="game-footer">
+            <div class="instructions">
+                <p>🖱️ 点击地面移动猫咪 | 🔢 解答数学题 | 🔤 认识字母 | 🎯 收集星星</p>
+            </div>
+        </footer>
+    </div>
+
+    <script src="cat.js"></script>
+</body>
+</html>
