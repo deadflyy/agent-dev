@@ -472,10 +472,15 @@ class DoctorGame {
             });
         }
 
-        // 延迟后显示关卡完成
+        // 显示康复弹窗
+        const healPopup = document.getElementById('healPopup');
+        healPopup.classList.remove('hidden');
+
+        // 延迟后隐藏弹窗并显示关卡完成
         setTimeout(() => {
+            healPopup.classList.add('hidden');
             this.levelComplete();
-        }, 2000);
+        }, 2500);
     }
 
     // 创建收集效果
@@ -1113,7 +1118,7 @@ class DoctorGame {
     // 游戏主循环
     startGameLoop() {
         const loop = (timestamp) => {
-            if (this.gameState === 'playing' || this.gameState === 'puzzle') {
+            if (this.gameState === 'playing' || this.gameState === 'puzzle' || this.gameState === 'healing') {
                 this.update(timestamp);
                 this.render();
             }
@@ -1172,22 +1177,42 @@ class DoctorGame {
 
     // 绘制网格
     drawGrid() {
-        this.ctx.strokeStyle = 'rgba(76, 175, 80, 0.1)';
+        // 交替格子底色，让网格更清晰
+        for (let x = 0; x < this.gridWidth; x++) {
+            for (let y = 0; y < this.gridHeight; y++) {
+                if ((x + y) % 2 === 0) {
+                    this.ctx.fillStyle = 'rgba(200, 230, 201, 0.35)';
+                } else {
+                    this.ctx.fillStyle = 'rgba(232, 245, 233, 0.35)';
+                }
+                this.ctx.fillRect(x * this.tileSize, y * this.tileSize, this.tileSize, this.tileSize);
+            }
+        }
+
+        // 网格线 - 使用半像素偏移确保线条锐利
+        this.ctx.strokeStyle = 'rgba(76, 175, 80, 0.3)';
         this.ctx.lineWidth = 1;
 
         for (let x = 0; x <= this.gridWidth; x++) {
+            const px = Math.round(x * this.tileSize) + 0.5;
             this.ctx.beginPath();
-            this.ctx.moveTo(x * this.tileSize, 0);
-            this.ctx.lineTo(x * this.tileSize, this.canvas.height);
+            this.ctx.moveTo(px, 0);
+            this.ctx.lineTo(px, this.canvas.height);
             this.ctx.stroke();
         }
 
         for (let y = 0; y <= this.gridHeight; y++) {
+            const py = Math.round(y * this.tileSize) + 0.5;
             this.ctx.beginPath();
-            this.ctx.moveTo(0, y * this.tileSize);
-            this.ctx.lineTo(this.canvas.width, y * this.tileSize);
+            this.ctx.moveTo(0, py);
+            this.ctx.lineTo(this.canvas.width, py);
             this.ctx.stroke();
         }
+
+        // 外边框加粗
+        this.ctx.strokeStyle = 'rgba(56, 142, 60, 0.5)';
+        this.ctx.lineWidth = 2;
+        this.ctx.strokeRect(0.5, 0.5, this.canvas.width - 1, this.canvas.height - 1);
     }
 
     // 绘制墙壁
