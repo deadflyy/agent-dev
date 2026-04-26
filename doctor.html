@@ -12,10 +12,15 @@
         <!-- 游戏头部 -->
         <header class="game-header">
             <div class="header-left">
-                <a href="index.html" class="back-btn">🏠</a>
+                <button id="backToLevelsBtn" class="back-levels-btn" title="返回关卡选择">🔙 关卡</button>
+                <a href="index.html" class="back-btn" title="返回主页">🏠</a>
                 <h1>👨‍⚕️ 医生救小兔</h1>
             </div>
             <div class="header-right">
+                <div class="weather-display" id="weatherDisplay">
+                    <span class="weather-icon">☀️</span>
+                    <span class="weather-name">晴天</span>
+                </div>
                 <div class="pill-display">
                     <span class="pill-icon">💊</span>
                     <span id="pillCount">0</span>/<span id="pillsNeeded">3</span>
@@ -164,11 +169,12 @@
                     </div>
                     <h2>关卡完成！</h2>
                     <div class="rabbit-healed">
-                        <span class="healed-rabbit">🐰</span>
+                        <canvas id="rabbitCanvas" width="200" height="250"></canvas>
                         <span class="healed-text">小兔子感觉好多了！</span>
                     </div>
                     <p class="encouragement">你真棒！医生收集到了足够的药片！</p>
                     <div class="complete-buttons">
+                        <button id="backToLevelsFromCompleteBtn" class="btn btn-secondary">🔙 返回关卡</button>
                         <button id="nextLevelBtn" class="btn btn-primary">下一关 ▶️</button>
                         <button id="replayBtn" class="btn btn-secondary">再玩一次 🔄</button>
                     </div>

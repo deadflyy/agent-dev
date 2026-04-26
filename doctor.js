@@ -46,6 +46,15 @@ class DoctorGame {
         this.animationFrame = null;
         this.lastTime = 0;
 
+        // 天气系统
+        this.currentWeather = null;
+        this.weatherEffects = [];
+
+        // 天气背景音乐
+        this.audioCtx = null;
+        this.weatherMusicNodes = [];
+        this.weatherMusicGain = null;
+
         // 初始化
         this.init();
     }
@@ -116,6 +125,42 @@ class DoctorGame {
         this.canvas.width = this.gridWidth * this.tileSize;
         this.canvas.height = this.gridHeight * this.tileSize;
         this.currentLevel = 1;
+    }
+
+    // 自适应canvas尺寸（适配移动端）
+    adaptCanvasSize() {
+        const gameScreen = document.getElementById('gameScreen');
+        if (!gameScreen) return;
+
+        const style = window.getComputedStyle(gameScreen);
+        const paddingLeft = parseFloat(style.paddingLeft) || 0;
+        const paddingRight = parseFloat(style.paddingRight) || 0;
+        const availableWidth = gameScreen.clientWidth - paddingLeft - paddingRight;
+
+        // 根据难度设置 tileSize 范围
+        const tileLimits = {
+            easy:   { min: 40, max: 70 },
+            medium: { min: 32, max: 60 },
+            hard:   { min: 28, max: 50 }
+        };
+        const limits = tileLimits[this.difficulty] || tileLimits.medium;
+
+        // 计算适配的 tileSize
+        let newTileSize = Math.floor(availableWidth / this.gridWidth);
+        newTileSize = Math.max(limits.min, Math.min(limits.max, newTileSize));
+
+        if (newTileSize !== this.tileSize) {
+            this.tileSize = newTileSize;
+            this.canvas.width = this.gridWidth * this.tileSize;
+            this.canvas.height = this.gridHeight * this.tileSize;
+        }
+
+        // 移动端去掉圆角避免多余空白
+        if (window.innerWidth <= 768) {
+            this.canvas.style.borderRadius = '10px';
+        } else {
+            this.canvas.style.borderRadius = '';
+        }
     }
 
     // 渲染关卡选择网格
@@ -198,8 +243,9 @@ class DoctorGame {
     // 绑定事件
     bindEvents() {
         document.getElementById('startBtn').addEventListener('click', () => {
-            this.loadLevel(this.currentLevel);
+            this.initWeatherAudio();
             this.showScreen('gameScreen');
+            this.loadLevel(this.currentLevel);
             this.gameState = 'playing';
             this.startGameLoop();
         });
@@ -207,6 +253,8 @@ class DoctorGame {
         document.getElementById('nextLevelBtn').addEventListener('click', () => this.nextLevel());
         document.getElementById('replayBtn').addEventListener('click', () => this.restartLevel());
         document.getElementById('playAgainBtn').addEventListener('click', () => this.resetGame());
+        document.getElementById('backToLevelsBtn').addEventListener('click', () => this.backToLevels());
+        document.getElementById('backToLevelsFromCompleteBtn').addEventListener('click', () => this.backToLevels());
 
         document.querySelectorAll('.difficulty-btn').forEach(btn => {
             const handleDifficultySelect = (e) => {
@@ -225,6 +273,24 @@ class DoctorGame {
 
         this.setupTouchEvents();
         this.bindPuzzleEvents();
+
+        // 窗口大小变化时自适应canvas
+        window.addEventListener('resize', () => {
+            if (this.gameState === 'playing' || this.gameState === 'puzzle' || this.gameState === 'healing') {
+                this.adaptCanvasSize();
+            }
+        });
+    }
+
+    // 返回关卡选择页面
+    backToLevels() {
+        this.gameState = 'start';
+        if (this.animationFrame) {
+            cancelAnimationFrame(this.animationFrame);
+        }
+        this.stopWeatherMusic();
+        this.showScreen('startScreen');
+        this.renderLevelGrid();
     }
 
     // 设置移动端触摸事件
@@ -456,6 +522,9 @@ class DoctorGame {
         this.rabbitHealed = true;
         this.rabbitJumpFrame = 0;
 
+        // 语音播报
+        this.speak('谢谢你医生，我感觉好多了');
+
         // 显示感谢消息
         this.showMessage('谢谢你，医生！我感觉好多啦！', '🐰');
 
@@ -481,6 +550,32 @@ class DoctorGame {
             healPopup.classList.add('hidden');
             this.levelComplete();
         }, 2500);
+    }
+
+    // 语音播报
+    speak(text) {
+        if (!window.speechSynthesis) {
+            console.log('浏览器不支持语音合成');
+            return;
+        }
+
+        window.speechSynthesis.cancel();
+
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = 'zh-CN';
+        utterance.rate = 0.9;
+        utterance.pitch = 1.1;
+        utterance.volume = 1.0;
+
+        if (window.speechSynthesis.getVoices) {
+            const voices = window.speechSynthesis.getVoices();
+            const zhVoice = voices.find(v => v.lang.includes('zh') || v.lang.includes('CN'));
+            if (zhVoice) {
+                utterance.voice = zhVoice;
+            }
+        }
+
+        window.speechSynthesis.speak(utterance);
     }
 
     // 创建收集效果
@@ -931,6 +1026,9 @@ class DoctorGame {
 
     // 加载关卡
     loadLevel(levelNum) {
+        // 自适应canvas尺寸
+        this.adaptCanvasSize();
+
         this.currentLevelData = this.generateRandomLevel(levelNum);
         const level = this.currentLevelData;
 
@@ -947,6 +1045,9 @@ class DoctorGame {
         this.rabbitHealed = false;
         this.rabbitJumpFrame = 0;
 
+        // 随机天气
+        this.setRandomWeather();
+
         this.updatePillDisplay();
         document.getElementById('pillsNeeded').textContent = this.pillsNeeded;
         document.getElementById('level').textContent = levelNum;
@@ -955,6 +1056,485 @@ class DoctorGame {
             setTimeout(() => this.showMessage(level.message, '💝'), 500);
         }
     }
+
+    // 设置随机天气
+    setRandomWeather() {
+        const weathers = [
+            { type: 'sunny', name: '晴天', icon: '☀️', bg: '#87CEEB', particleColor: '#FFD700' },
+            { type: 'cloudy', name: '多云', icon: '⛅', bg: '#B0C4DE', particleColor: '#D3D3D3' },
+            { type: 'rainy', name: '下雨', icon: '🌧️', bg: '#778899', particleColor: '#4682B4' },
+            { type: 'snowy', name: '下雪', icon: '❄️', bg: '#E6E6FA', particleColor: '#FFFFFF' },
+            { type: 'windy', name: '大风', icon: '💨', bg: '#ADD8E6', particleColor: '#87CEEB' },
+            { type: 'foggy', name: '有雾', icon: '🌫️', bg: '#D3D3D3', particleColor: '#C0C0C0' }
+        ];
+
+        this.currentWeather = weathers[Math.floor(Math.random() * weathers.length)];
+        this.weatherEffects = [];
+
+        // 更新天气显示
+        const weatherDisplay = document.getElementById('weatherDisplay');
+        if (weatherDisplay) {
+            weatherDisplay.querySelector('.weather-icon').textContent = this.currentWeather.icon;
+            weatherDisplay.querySelector('.weather-name').textContent = this.currentWeather.name;
+        }
+
+        // 初始化天气效果
+        this.initWeatherEffects();
+
+        // 播放天气背景音乐
+        if (this.audioCtx) {
+            this.playWeatherMusic(this.currentWeather.type);
+        }
+    }
+
+    // 初始化天气效果
+    initWeatherEffects() {
+        if (!this.currentWeather) return;
+
+        const count = 50;
+        for (let i = 0; i < count; i++) {
+            this.weatherEffects.push({
+                x: Math.random() * this.canvas.width,
+                y: Math.random() * this.canvas.height,
+                speed: Math.random() * 2 + 1,
+                size: Math.random() * 3 + 2,
+                opacity: Math.random() * 0.5 + 0.3
+            });
+        }
+    }
+
+    // 绘制天气效果
+    drawWeather() {
+        if (!this.currentWeather) return;
+
+        switch(this.currentWeather.type) {
+            case 'rainy':
+                this.drawRain();
+                break;
+            case 'snowy':
+                this.drawSnow();
+                break;
+            case 'windy':
+                this.drawWind();
+                break;
+            case 'foggy':
+                this.drawFog();
+                break;
+            case 'sunny':
+                this.drawSunshine();
+                break;
+            case 'cloudy':
+                this.drawCloudy();
+                break;
+        }
+    }
+
+    // 绘制下雨
+    drawRain() {
+        this.ctx.strokeStyle = 'rgba(70, 130, 180, 0.6)';
+        this.ctx.lineWidth = 2;
+
+        this.weatherEffects.forEach(p => {
+            this.ctx.beginPath();
+            this.ctx.moveTo(p.x, p.y);
+            this.ctx.lineTo(p.x - 2, p.y + 10);
+            this.ctx.stroke();
+
+            p.y += p.speed * 3;
+            p.x -= 1;
+
+            if (p.y > this.canvas.height) {
+                p.y = -10;
+                p.x = Math.random() * this.canvas.width;
+            }
+        });
+    }
+
+    // 绘制下雪
+    drawSnow() {
+        this.ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+
+        this.weatherEffects.forEach(p => {
+            this.ctx.beginPath();
+            this.ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+            this.ctx.fill();
+
+            p.y += p.speed;
+            p.x += Math.sin(p.y * 0.02) * 0.5;
+
+            if (p.y > this.canvas.height) {
+                p.y = -10;
+                p.x = Math.random() * this.canvas.width;
+            }
+        });
+    }
+
+    // 绘制大风
+    drawWind() {
+        this.ctx.strokeStyle = 'rgba(135, 206, 235, 0.4)';
+        this.ctx.lineWidth = 2;
+
+        this.weatherEffects.forEach(p => {
+            this.ctx.beginPath();
+            this.ctx.moveTo(p.x, p.y);
+            this.ctx.lineTo(p.x + 20, p.y - 5);
+            this.ctx.stroke();
+
+            p.x += p.speed * 2;
+
+            if (p.x > this.canvas.width + 20) {
+                p.x = -20;
+                p.y = Math.random() * this.canvas.height;
+            }
+        });
+    }
+
+    // 绘制雾
+    drawFog() {
+        const gradient = this.ctx.createLinearGradient(0, 0, 0, this.canvas.height);
+        gradient.addColorStop(0, 'rgba(200, 200, 200, 0.3)');
+        gradient.addColorStop(0.5, 'rgba(200, 200, 200, 0.5)');
+        gradient.addColorStop(1, 'rgba(200, 200, 200, 0.3)');
+
+        this.ctx.fillStyle = gradient;
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+
+        this.weatherEffects.forEach(p => {
+            this.ctx.fillStyle = `rgba(192, 192, 192, ${p.opacity * 0.3})`;
+            this.ctx.beginPath();
+            this.ctx.arc(p.x, p.y, p.size * 10, 0, Math.PI * 2);
+            this.ctx.fill();
+
+            p.x += 0.3;
+
+            if (p.x > this.canvas.width + 50) {
+                p.x = -50;
+            }
+        });
+    }
+
+    // 绘制晴天阳光效果
+    drawSunshine() {
+        const time = Date.now() * 0.001;
+        const gradient = this.ctx.createRadialGradient(
+            this.canvas.width * 0.8,
+            this.canvas.height * 0.2,
+            0,
+            this.canvas.width * 0.8,
+            this.canvas.height * 0.2,
+            150
+        );
+        gradient.addColorStop(0, 'rgba(255, 215, 0, 0.15)');
+        gradient.addColorStop(1, 'rgba(255, 215, 0, 0)');
+
+        this.ctx.fillStyle = gradient;
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+
+        // 阳光粒子
+        this.weatherEffects.forEach(p => {
+            const alpha = 0.3 + Math.sin(time + p.x * 0.01) * 0.2;
+            this.ctx.fillStyle = `rgba(255, 215, 0, ${alpha})`;
+            this.ctx.beginPath();
+            this.ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+            this.ctx.fill();
+
+            p.y += 0.2;
+            p.x += Math.sin(time + p.y * 0.01) * 0.3;
+
+            if (p.y > this.canvas.height) {
+                p.y = -10;
+                p.x = Math.random() * this.canvas.width;
+            }
+        });
+    }
+
+    // 绘制多云效果
+    drawCloudy() {
+        const time = Date.now() * 0.0003;
+        const cw = this.canvas.width;
+        const ch = this.canvas.height;
+
+        // 半透明云层遮罩
+        this.ctx.fillStyle = 'rgba(200, 210, 220, 0.2)';
+        this.ctx.fillRect(0, 0, cw, ch);
+
+        // 绘制云朵
+        const clouds = [
+            { x: 0.15, y: 0.12, w: 0.25, h: 0.08, speed: 1 },
+            { x: 0.55, y: 0.06, w: 0.30, h: 0.10, speed: 0.7 },
+            { x: 0.35, y: 0.22, w: 0.20, h: 0.07, speed: 1.2 },
+            { x: 0.75, y: 0.18, w: 0.22, h: 0.09, speed: 0.5 },
+            { x: 0.05, y: 0.30, w: 0.18, h: 0.06, speed: 0.9 }
+        ];
+
+        clouds.forEach(cloud => {
+            const cx = ((cloud.x + time * cloud.speed) % 1.4 - 0.2) * cw;
+            const cy = cloud.y * ch;
+            const w = cloud.w * cw;
+            const h = cloud.h * ch;
+
+            this.ctx.fillStyle = 'rgba(220, 225, 235, 0.55)';
+            this.ctx.beginPath();
+            this.ctx.ellipse(cx, cy, w * 0.5, h * 0.5, 0, 0, Math.PI * 2);
+            this.ctx.fill();
+
+            this.ctx.fillStyle = 'rgba(230, 235, 245, 0.45)';
+            this.ctx.beginPath();
+            this.ctx.ellipse(cx - w * 0.2, cy + h * 0.1, w * 0.35, h * 0.4, 0, 0, Math.PI * 2);
+            this.ctx.fill();
+
+            this.ctx.beginPath();
+            this.ctx.ellipse(cx + w * 0.25, cy + h * 0.05, w * 0.3, h * 0.35, 0, 0, Math.PI * 2);
+            this.ctx.fill();
+        });
+    }
+
+    // ========== 天气背景音乐 (Web Audio API) ==========
+
+    // 初始化音频上下文（需用户交互后调用）
+    initWeatherAudio() {
+        if (this.audioCtx) return;
+        try {
+            this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            this.weatherMusicGain = this.audioCtx.createGain();
+            this.weatherMusicGain.gain.value = 0;
+            this.weatherMusicGain.connect(this.audioCtx.destination);
+        } catch (e) {
+            console.log('Web Audio API 不可用');
+        }
+    }
+
+    // 创建白噪声缓冲区
+    createNoiseBuffer(duration) {
+        const sampleRate = this.audioCtx.sampleRate;
+        const length = sampleRate * duration;
+        const buffer = this.audioCtx.createBuffer(1, length, sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < length; i++) {
+            data[i] = Math.random() * 2 - 1;
+        }
+        return buffer;
+    }
+
+    // 停止当前天气音乐
+    stopWeatherMusic() {
+        this.weatherMusicNodes.forEach(node => {
+            try { node.stop(); } catch (e) { /* ignore */ }
+            try { node.disconnect(); } catch (e) { /* ignore */ }
+        });
+        this.weatherMusicNodes = [];
+    }
+
+    // 播放天气背景音乐
+    playWeatherMusic(type) {
+        if (!this.audioCtx) return;
+        this.stopWeatherMusic();
+
+        // 如果音频上下文被暂停（浏览器自动播放策略），尝试恢复
+        if (this.audioCtx.state === 'suspended') {
+            this.audioCtx.resume();
+        }
+
+        // 淡入
+        this.weatherMusicGain.gain.cancelScheduledValues(this.audioCtx.currentTime);
+        this.weatherMusicGain.gain.setValueAtTime(0, this.audioCtx.currentTime);
+        this.weatherMusicGain.gain.linearRampToValueAtTime(0.3, this.audioCtx.currentTime + 1);
+
+        switch (type) {
+            case 'sunny': this.playSunnyMusic(); break;
+            case 'cloudy': this.playCloudyMusic(); break;
+            case 'rainy': this.playRainyMusic(); break;
+            case 'snowy': this.playSnowyMusic(); break;
+            case 'windy': this.playWindyMusic(); break;
+            case 'foggy': this.playFoggyMusic(); break;
+        }
+    }
+
+    playSunnyMusic() {
+        const ctx = this.audioCtx;
+        // 温暖和弦：C4 + E4 + G4
+        [261.63, 329.63, 392.00].forEach(freq => {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.value = freq;
+            gain.gain.value = 0.06;
+            osc.connect(gain);
+            gain.connect(this.weatherMusicGain);
+            osc.start();
+            this.weatherMusicNodes.push(osc);
+        });
+        // 鸟鸣般的高频装饰音
+        const chirp = () => {
+            if (!this.weatherMusicNodes.length) return;
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = 'sine';
+            const baseFreq = 1200 + Math.random() * 800;
+            osc.frequency.setValueAtTime(baseFreq, ctx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(baseFreq * 1.3, ctx.currentTime + 0.1);
+            gain.gain.setValueAtTime(0.03, ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+            osc.connect(gain);
+            gain.connect(this.weatherMusicGain);
+            osc.start();
+            osc.stop(ctx.currentTime + 0.3);
+            setTimeout(chirp, 2000 + Math.random() * 4000);
+        };
+        setTimeout(chirp, 1000);
+    }
+
+    playCloudyMusic() {
+        const ctx = this.audioCtx;
+        // 低沉 pad：C3 + 低音 G3
+        [130.81, 196.00].forEach(freq => {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.value = freq;
+            gain.gain.value = 0.07;
+            // 缓慢 LFO 音量调制
+            const lfo = ctx.createOscillator();
+            const lfoGain = ctx.createGain();
+            lfo.type = 'sine';
+            lfo.frequency.value = 0.15;
+            lfoGain.gain.value = 0.03;
+            lfo.connect(lfoGain);
+            lfoGain.connect(gain.gain);
+            lfo.start();
+            osc.connect(gain);
+            gain.connect(this.weatherMusicGain);
+            osc.start();
+            this.weatherMusicNodes.push(osc, lfo);
+        });
+    }
+
+    playRainyMusic() {
+        const ctx = this.audioCtx;
+        const noiseBuffer = this.createNoiseBuffer(4);
+        // 持续白噪声 + 带通滤波模拟雨声
+        const noise = ctx.createBufferSource();
+        noise.buffer = noiseBuffer;
+        noise.loop = true;
+        const bp = ctx.createBiquadFilter();
+        bp.type = 'bandpass';
+        bp.frequency.value = 3000;
+        bp.Q.value = 0.5;
+        const noiseGain = ctx.createGain();
+        noiseGain.gain.value = 0.15;
+        noise.connect(bp);
+        bp.connect(noiseGain);
+        noiseGain.connect(this.weatherMusicGain);
+        noise.start();
+        this.weatherMusicNodes.push(noise);
+
+        // 雨滴节奏音
+        const drip = () => {
+            if (!this.weatherMusicNodes.length) return;
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.value = 800 + Math.random() * 400;
+            gain.gain.setValueAtTime(0.02, ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.08);
+            osc.connect(gain);
+            gain.connect(this.weatherMusicGain);
+            osc.start();
+            osc.stop(ctx.currentTime + 0.08);
+            setTimeout(drip, 80 + Math.random() * 200);
+        };
+        setTimeout(drip, 500);
+    }
+
+    playSnowyMusic() {
+        const ctx = this.audioCtx;
+        // 高频柔和颤音
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.value = 600;
+        gain.gain.value = 0.04;
+        // 缓慢颤音
+        const vibrato = ctx.createOscillator();
+        const vibratoGain = ctx.createGain();
+        vibrato.type = 'sine';
+        vibrato.frequency.value = 2;
+        vibratoGain.gain.value = 15;
+        vibrato.connect(vibratoGain);
+        vibratoGain.connect(osc.frequency);
+        vibrato.start();
+        osc.connect(gain);
+        gain.connect(this.weatherMusicGain);
+        osc.start();
+        this.weatherMusicNodes.push(osc, vibrato);
+
+        // 低音 pad 衬底
+        const pad = ctx.createOscillator();
+        const padGain = ctx.createGain();
+        pad.type = 'sine';
+        pad.frequency.value = 220;
+        padGain.gain.value = 0.03;
+        pad.connect(padGain);
+        padGain.connect(this.weatherMusicGain);
+        pad.start();
+        this.weatherMusicNodes.push(pad);
+    }
+
+    playWindyMusic() {
+        const ctx = this.audioCtx;
+        const noiseBuffer = this.createNoiseBuffer(4);
+        // 粉噪声模拟风声
+        const noise = ctx.createBufferSource();
+        noise.buffer = noiseBuffer;
+        noise.loop = true;
+        const lp = ctx.createBiquadFilter();
+        lp.type = 'lowpass';
+        lp.frequency.value = 800;
+        lp.Q.value = 1;
+        // LFO 调制滤波器频率产生风的起伏感
+        const lfo = ctx.createOscillator();
+        const lfoGain = ctx.createGain();
+        lfo.type = 'sine';
+        lfo.frequency.value = 0.3;
+        lfoGain.gain.value = 400;
+        lfo.connect(lfoGain);
+        lfoGain.connect(lp.frequency);
+        lfo.start();
+        const noiseGain = ctx.createGain();
+        noiseGain.gain.value = 0.12;
+        noise.connect(lp);
+        lp.connect(noiseGain);
+        noiseGain.connect(this.weatherMusicGain);
+        noise.start();
+        this.weatherMusicNodes.push(noise, lfo);
+    }
+
+    playFoggyMusic() {
+        const ctx = this.audioCtx;
+        // 低频 drone + 大量泛音营造朦胧感
+        [82.41, 110.00, 164.81].forEach(freq => {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.value = freq;
+            gain.gain.value = 0.04;
+            // 缓慢音量漂浮
+            const lfo = ctx.createOscillator();
+            const lfoGain = ctx.createGain();
+            lfo.type = 'sine';
+            lfo.frequency.value = 0.08 + Math.random() * 0.05;
+            lfoGain.gain.value = 0.02;
+            lfo.connect(lfoGain);
+            lfoGain.connect(gain.gain);
+            lfo.start();
+            osc.connect(gain);
+            gain.connect(this.weatherMusicGain);
+            osc.start();
+            this.weatherMusicNodes.push(osc, lfo);
+        });
+    }
+
+    // ========== 天气背景音乐结束 ==========
 
     // 显示谜题弹窗
     showPuzzleModal(puzzle) {
@@ -1069,19 +1649,177 @@ class DoctorGame {
     // 关卡完成
     levelComplete() {
         this.gameState = 'levelComplete';
+        this.stopWeatherMusic();
         this.showScreen('levelCompleteScreen');
+
+        // 绘制全身蹦跳的小兔子
+        this.drawFullRabbit();
+
+        // 语音播报
+        setTimeout(() => {
+            this.speak('谢谢你医生，我感觉好多了');
+        }, 500);
 
         if (this.currentLevel < this.maxLevels) {
             this.unlockLevel(this.currentLevel + 1);
         }
     }
 
+    // 绘制全身蹦跳的小兔子（关卡完成页面）
+    drawFullRabbit() {
+        const canvas = document.getElementById('rabbitCanvas');
+        if (!canvas) return;
+
+        const ctx = canvas.getContext('2d');
+        const width = canvas.width;
+        const height = canvas.height;
+        let frame = 0;
+
+        const animate = () => {
+            ctx.clearRect(0, 0, width, height);
+
+            // 跳跃动画
+            const jumpOffset = Math.sin(frame * 0.1) * 15;
+            const squash = 1 + Math.sin(frame * 0.1) * 0.05;
+            const stretch = 1 - Math.sin(frame * 0.1) * 0.05;
+
+            ctx.save();
+            ctx.translate(width / 2, height / 2 + jumpOffset);
+            ctx.scale(stretch, squash);
+
+            // 阴影
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
+            ctx.beginPath();
+            ctx.ellipse(0, 80 - jumpOffset, 40, 10, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 身体
+            ctx.fillStyle = 'white';
+            ctx.beginPath();
+            ctx.ellipse(0, 30, 35, 45, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 头部
+            ctx.fillStyle = 'white';
+            ctx.beginPath();
+            ctx.arc(0, -20, 30, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 左耳朵
+            ctx.fillStyle = 'white';
+            ctx.beginPath();
+            ctx.ellipse(-12, -60, 8, 25, -0.2, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 右耳朵
+            ctx.beginPath();
+            ctx.ellipse(12, -60, 8, 25, 0.2, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 耳朵内侧
+            ctx.fillStyle = '#FFB6C1';
+            ctx.beginPath();
+            ctx.ellipse(-12, -60, 4, 18, -0.2, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.beginPath();
+            ctx.ellipse(12, -60, 4, 18, 0.2, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 眼睛（开心）
+            ctx.fillStyle = '#333';
+            ctx.beginPath();
+            ctx.arc(-10, -25, 4, 0, Math.PI * 2);
+            ctx.arc(10, -25, 4, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 眼睛高光
+            ctx.fillStyle = 'white';
+            ctx.beginPath();
+            ctx.arc(-9, -26, 2, 0, Math.PI * 2);
+            ctx.arc(11, -26, 2, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 腮红
+            ctx.fillStyle = '#FFB6C1';
+            ctx.beginPath();
+            ctx.arc(-18, -15, 6, 0, Math.PI * 2);
+            ctx.arc(18, -15, 6, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 微笑
+            ctx.strokeStyle = '#333';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(0, -18, 12, 0.2, Math.PI - 0.2);
+            ctx.stroke();
+
+            // 鼻子
+            ctx.fillStyle = '#FFB6C1';
+            ctx.beginPath();
+            ctx.arc(0, -20, 3, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 前爪
+            ctx.fillStyle = 'white';
+            ctx.beginPath();
+            ctx.ellipse(-25, 50, 8, 12, -0.3, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.beginPath();
+            ctx.ellipse(25, 50, 8, 12, 0.3, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 后腿
+            ctx.fillStyle = 'white';
+            ctx.beginPath();
+            ctx.ellipse(-20, 70, 12, 8, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.beginPath();
+            ctx.ellipse(20, 70, 12, 8, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 尾巴
+            ctx.fillStyle = 'white';
+            ctx.beginPath();
+            ctx.arc(0, 70, 10, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.restore();
+
+            // 爱心效果
+            const heartCount = 6;
+            for (let i = 0; i < heartCount; i++) {
+                const angle = (frame * 0.05) + (i * Math.PI * 2 / heartCount);
+                const radius = 60 + Math.sin(frame * 0.1 + i) * 10;
+                const heartX = width / 2 + Math.cos(angle) * radius;
+                const heartY = height / 2 + Math.sin(angle) * radius - 20;
+                const heartSize = 15 + Math.sin(frame * 0.1 + i) * 5;
+                const alpha = 0.5 + Math.sin(frame * 0.1 + i) * 0.3;
+
+                ctx.fillStyle = `rgba(255, 105, 180, ${alpha})`;
+                ctx.font = `${heartSize}px Arial`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('❤️', heartX, heartY);
+            }
+
+            frame++;
+            if (this.gameState === 'levelComplete') {
+                requestAnimationFrame(animate);
+            }
+        };
+
+        animate();
+    }
+
     // 下一关
     nextLevel() {
         if (this.currentLevel < this.maxLevels) {
             this.currentLevel++;
-            this.loadLevel(this.currentLevel);
             this.showScreen('gameScreen');
+            this.loadLevel(this.currentLevel);
             this.gameState = 'playing';
         } else {
             this.gameComplete();
@@ -1090,14 +1828,15 @@ class DoctorGame {
 
     // 重新开始关卡
     restartLevel() {
-        this.loadLevel(this.currentLevel);
         this.showScreen('gameScreen');
+        this.loadLevel(this.currentLevel);
         this.gameState = 'playing';
     }
 
     // 游戏完成
     gameComplete() {
         this.gameState = 'gameComplete';
+        this.stopWeatherMusic();
         document.getElementById('totalPills').textContent = this.pillsCollected;
         document.getElementById('healedRabbits').textContent = this.currentLevel;
         this.showScreen('gameCompleteScreen');
@@ -1110,8 +1849,8 @@ class DoctorGame {
         this.difficultyProgress[this.difficulty] = [1];
         this.saveDifficultyProgress();
         this.renderLevelGrid();
-        this.loadLevel(1);
         this.showScreen('gameScreen');
+        this.loadLevel(1);
         this.gameState = 'playing';
     }
 
@@ -1149,9 +1888,16 @@ class DoctorGame {
 
     // 渲染游戏
     render() {
-        // 清空画布
-        this.ctx.fillStyle = '#E8F5E9';
+        // 清空画布 - 根据天气设置背景色
+        if (this.currentWeather) {
+            this.ctx.fillStyle = this.currentWeather.bg;
+        } else {
+            this.ctx.fillStyle = '#E8F5E9';
+        }
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+
+        // 绘制天气效果
+        this.drawWeather();
 
         // 绘制网格
         this.drawGrid();
