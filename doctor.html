@@ -6,8 +6,51 @@
     <title>医生救小兔</title>
     <meta name="description" content="帮助医生收集药片，给小兔子看病，适合小朋友的益智游戏">
     <link rel="stylesheet" href="doctor.css">
+    <script src="auth.js"></script>
+    <script>
+        let game = null;
+        let gameProgress_ = null;
+        const GAME_NAME = 'doctor';
+        let lastSaveTime = 0;
+
+        async function loadGameProgress_() {
+            if (!window.auth.getUserId()) return;
+            gameProgress_ = new window.GameProgress(GAME_NAME);
+            const saved = await gameProgress_.load();
+            if (saved && game) {
+                if (saved.level) {
+                    document.getElementById('level').textContent = saved.level;
+                }
+            }
+        }
+
+        async function saveGameProgress_() {
+            if (!window.auth.getUserId() || !gameProgress_ || !game) return;
+            await gameProgress_.save({
+                level: game.currentLevel || 1
+            });
+        }
+
+        function initGame_() {
+            game = new DoctorGame();
+            loadGameProgress_();
+            
+            setInterval(() => {
+                if (game && game.gameState === 'playing' && window.auth.getUserId()) {
+                    const now = Date.now();
+                    if (now - lastSaveTime > 10000) {
+                        saveGameProgress_();
+                        lastSaveTime = now;
+                    }
+                }
+            }, 10000);
+        }
+    </script>
 </head>
 <body>
+    <div class="auth-bar">
+        <div id="auth-status"></div>
+    </div>
     <div class="game-container">
         <!-- 游戏头部 -->
         <header class="game-header">
@@ -214,6 +257,87 @@
         </footer>
     </div>
 
+    <div id="auth-modal" class="auth-modal hidden">
+        <div class="auth-modal-content">
+            <h2 id="auth-title">登录</h2>
+            <div id="auth-error" class="auth-error"></div>
+            <input type="text" id="auth-username" placeholder="用户名">
+            <input type="password" id="auth-password" placeholder="密码">
+            <button class="btn btn-primary" id="auth-submit">登录</button>
+            <div class="auth-switch">
+                <span id="auth-switch-text">还没有账号？</span> <a id="auth-switch-link">立即注册</a>
+            </div>
+        </div>
+    </div>
+
     <script src="doctor.js"></script>
+    <script>
+        initGame_();
+        
+        function updateAuthUI() {
+            const status = document.getElementById('auth-status');
+            if (window.auth.currentUser) {
+                status.innerHTML = '<div class="user-info"><span class="username">' + window.auth.currentUser.username + '</span><button class="btn-logout" onclick="window.auth.logout(); updateAuthUI();">退出登录</button></div>';
+            } else {
+                status.innerHTML = '<button class="btn btn-primary" onclick="showAuthModal(\'login\')">登录 / 注册</button>';
+            }
+        }
+
+        function showAuthModal(mode) {
+            const modal = document.getElementById('auth-modal');
+            const title = document.getElementById('auth-title');
+            const submit = document.getElementById('auth-submit');
+            const switchText = document.getElementById('auth-switch-text');
+            const switchLink = document.getElementById('auth-switch-link');
+            const error = document.getElementById('auth-error');
+            error.textContent = '';
+            document.getElementById('auth-username').value = '';
+            document.getElementById('auth-password').value = '';
+            if (mode === 'login') {
+                title.textContent = '登录';
+                submit.textContent = '登录';
+                switchText.textContent = '还没有账号？';
+                switchLink.textContent = '立即注册';
+                switchLink.onclick = function() { showAuthModal('register'); };
+            } else {
+                title.textContent = '注册';
+                submit.textContent = '注册';
+                switchText.textContent = '已有账号？';
+                switchLink.textContent = '立即登录';
+                switchLink.onclick = function() { showAuthModal('login'); };
+            }
+            modal.classList.remove('hidden');
+        }
+
+        document.getElementById('auth-submit').onclick = async function() {
+            const username = document.getElementById('auth-username').value.trim();
+            const password = document.getElementById('auth-password').value;
+            const error = document.getElementById('auth-error');
+            const title = document.getElementById('auth-title');
+            if (!username || !password) {
+                error.textContent = '请填写用户名和密码';
+                return;
+            }
+            let data;
+            if (title.textContent === '登录') {
+                data = await window.auth.login(username, password);
+            } else {
+                data = await window.auth.register(username, password);
+            }
+            if (data.success) {
+                document.getElementById('auth-modal').classList.add('hidden');
+                updateAuthUI();
+                loadGameProgress_();
+            } else {
+                error.textContent = data.message;
+            }
+        };
+
+        document.getElementById('auth-modal').onclick = function(e) {
+            if (e.target === this) this.classList.add('hidden');
+        };
+
+        updateAuthUI();
+    </script>
 </body>
 </html>
