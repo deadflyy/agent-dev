@@ -2,15 +2,25 @@
 
 ## 项目概述
 
-本项目是一个纯前端静态网站，包含三个 HTML5 游戏：
+本项目是一个包含用户系统的在线小游戏平台：
+
 - **坦克大战** - 经典射击游戏
 - **魂斗罗** - 横版动作射击游戏
-- **课堂划水大作战** - 休闲策略游戏
+- **课堂划水游戏** - 休闲策略游戏
+- **小猫回家** - 益智学习游戏
+- **医生救小兔** - 益智学习游戏
+
+**已实现功能**：
+- 用户注册/登录
+- 游戏进度保存和加载
+- 用户系统（Node.js + Express + SQLite）
 
 ## 系统要求
 
 - **操作系统**: Ubuntu 24.04 LTS
-- **Web 服务器**: Nginx
+- **Node.js**: 18.x 或更高版本
+- **Web 服务器**: Nginx (用于反向代理)
+- **PM2**: 进程管理器
 - **域名**: 可选（用于 HTTPS）
 
 ## 目录结构
@@ -23,13 +33,20 @@ agent-dev/
 │   └── DEPLOY.md       # 本手册
 ├── index.html          # 游戏选择主页
 ├── style.css           # 全局样式
-├── tank.html           # 坦克大战
-├── tank.js             # 坦克大战逻辑
-├── contra.html         # 魂斗罗
-├── contra.js           # 魂斗罗逻辑
-├── slacking.html       # 课堂划水大作战
-├── slacking.js         # 课堂划水逻辑
-└── 老师.jpg            # 游戏素材
+├── auth.js            # 认证模块
+├── server.js          # 后端服务
+├── package.json      # 项目配置
+├── tank.html          # 坦克大战
+├── tank.js / game.js  # 游戏逻辑
+├── contra.html        # 魂斗罗
+├── contra.js         
+├── slacking.html     # 课堂划水游戏
+├── slacking.js       
+├── cat.html          # 小猫回家
+├── cat.js / cat.css  
+├── doctor.html       # 医生救小兔
+├── doctor.js / doctor.css
+└── 老师.jpg          # 游戏素材
 ```
 
 ## 快速开始
