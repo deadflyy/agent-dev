@@ -32,11 +32,21 @@ class CatGame {
         // 动画
         this.animationFrame = 0;
         this.catBounce = 0;
-        
+        this.catTailWag = 0;
+        this.catBlinkTimer = 0;
+        this.catIsBlinking = false;
+
         // 当前谜题
         this.currentPuzzle = null;
         this.pendingMove = null;
-        
+
+        // 步数计数
+        this.stepCount = 0;
+
+        // 音频系统
+        this.audioCtx = null;
+        this.audioInitialized = false;
+
         // 颜色主题
         this.colors = {
             background: '#FFF5F7',
@@ -214,6 +224,138 @@ class CatGame {
         this.bindEvents();
         this.startScreen();
         this.gameLoop();
+    }
+
+    // 初始化音频上下文
+    initAudio() {
+        if (this.audioInitialized) return;
+        try {
+            this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            this.audioInitialized = true;
+        } catch (e) {
+            console.log('Web Audio API 不可用');
+        }
+    }
+
+    // 播放音效
+    playSound(type) {
+        if (!this.audioCtx) return;
+        const ctx = this.audioCtx;
+        const now = ctx.currentTime;
+
+        const createOsc = (type, freq, start, duration, gainVal = 0.15) => {
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = type;
+                osc.frequency.setValueAtTime(freq, now + start);
+                gain.gain.setValueAtTime(gainVal, now + start);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + start + duration);
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start(now + start);
+                osc.stop(now + start + duration);
+        };
+
+        switch (type) {
+            case 'move':
+                createOsc('sine', 600, 0, 0.08, 0.06);
+                createOsc('sine', 900, 0.02, 0.06, 0.04);
+                break;
+            case 'collect_star':
+                createOsc('sine', 880, 0, 0.15, 0.2);
+                createOsc('sine', 1320, 0.05, 0.2, 0.15);
+                createOsc('sine', 1760, 0.1, 0.25, 0.1);
+                break;
+            case 'collect_key':
+                createOsc('triangle', 660, 0, 0.1, 0.2);
+                createOsc('triangle', 990, 0.06, 0.15, 0.15);
+                createOsc('triangle', 1320, 0.12, 0.2, 0.1);
+                break;
+            case 'puzzle_correct':
+                createOsc('sine', 523, 0, 0.1, 0.2);
+                createOsc('sine', 659, 0.1, 0.1, 0.2);
+                createOsc('sine', 784, 0.2, 0.1, 0.2);
+                createOsc('sine', 1047, 0.3, 0.3, 0.2);
+                break;
+            case 'puzzle_wrong':
+                createOsc('square', 200, 0, 0.2, 0.08);
+                createOsc('square', 150, 0.1, 0.25, 0.06);
+                break;
+            case 'door_open':
+                createOsc('sawtooth', 200, 0, 0.3, 0.08);
+                createOsc('sine', 600, 0.15, 0.35, 0.12);
+                break;
+            case 'level_complete':
+                [523, 659, 784, 1047, 784, 1047].forEach((freq, i) => {
+                    createOsc('sine', freq, i * 0.12, 0.2, 0.15);
+                });
+                break;
+            case 'game_complete':
+                [523, 659, 784, 1047, 1319, 1568, 1047, 1568].forEach((freq, i) => {
+                    createOsc('sine', freq, i * 0.1, 0.25, 0.15);
+                });
+                break;
+        }
+    }
+
+    // 播放背景音乐（轻快的旋律）
+    startBGM() {
+        if (!this.audioCtx) return;
+        this.stopBGM();
+
+        const ctx = this.audioCtx;
+        const now = ctx.currentTime;
+        const bpm = 100;
+        const beat = 60 / bpm;
+
+        const melody = [
+            { freq: 523, dur: 0.5, gap: 0 },
+            { freq: 587, dur: 0.5, gap: 0 },
+            { freq: 659, dur: 0.5, gap: 0 },
+            { freq: 523, dur: 0.5, gap: 0 },
+            { freq: 659, dur: 0.5, gap: 0 },
+            { freq: 784, dur: 1.0, gap: 0 },
+            { freq: 659, dur: 0.5, gap: 0 },
+            { freq: 523, dur: 0.5, gap: 0 },
+            { freq: 440, dur: 0.5, gap: 0 },
+            { freq: 523, dur: 1.0, gap: 0 },
+        ];
+
+        this._bgmNodes = [];
+        let timeOffset = 0;
+
+        const playMelodyLoop = () => {
+            if (!this._bgmPlaying) return;
+            melody.forEach(note => {
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.value = note.freq;
+                const startTime = now + timeOffset;
+                gain.gain.setValueAtTime(0.04, startTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, startTime + note.dur * 0.9);
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start(startTime);
+                osc.stop(startTime + note.dur);
+                this._bgmNodes.push(osc);
+                timeOffset += note.dur * 0.7;
+            });
+            this._bgmTimer = setTimeout(playMelodyLoop, timeOffset * 1000 - 200);
+            timeOffset = 0;
+        };
+
+        this._bgmPlaying = true;
+        playMelodyLoop();
+    }
+
+    stopBGM() {
+        this._bgmPlaying = false;
+        if (this._bgmTimer) clearTimeout(this._bgmTimer);
+        if (this._bgmNodes) {
+            this._bgmNodes.forEach(n => { try { n.stop(); n.disconnect(); } catch (e) {} });
+            this._bgmNodes = [];
+        }
     }
     
     // 根据难度和关卡获取配置
@@ -993,6 +1135,7 @@ class CatGame {
         
         if (isCorrect) {
             this.currentPuzzle.solved = true;
+            this.playSound('puzzle_correct');
             this.createParticles(this.currentPuzzle.x, this.currentPuzzle.y, 'success');
             
             const messages = ['🎉 答对了！真聪明！', '⭐ 太棒了！', '🌟 你真厉害！'];
@@ -1006,6 +1149,7 @@ class CatGame {
             this.score += 5;
             this.updateScore();
         } else {
+            this.playSound('puzzle_wrong');
             this.showMessage('😅 再想想看~', '💭');
             const modal = document.querySelector('.puzzle-content');
             modal.style.animation = 'shake 0.5s ease';
@@ -1050,16 +1194,24 @@ class CatGame {
         this.cat.x = x;
         this.cat.y = y;
         this.cat.moving = true;
-        
+        this.stepCount++;
+        this.playSound('move');
+        this.updateStepCount();
+
         this.checkCollection();
         this.checkWin();
-        
+
         setTimeout(() => this.cat.moving = false, 200);
+    }
+
+    updateStepCount() {
+        const stepEl = document.getElementById('stepCount');
+        if (stepEl) stepEl.textContent = this.stepCount;
     }
     
     checkCollection() {
         const level = this.currentLevelData;
-        
+
         // 检查星星
         level.stars?.forEach(star => {
             if (star.x === this.cat.x && star.y === this.cat.y && !star.collected) {
@@ -1068,20 +1220,25 @@ class CatGame {
                 this.score++;
                 this.starsCollected++;
                 this.updateScore();
+                this.playSound('collect_star');
                 this.createParticles(this.cat.x, this.cat.y, 'star');
                 this.showMessage('⭐ 收集到星星！', '⭐');
             }
         });
-        
+
         // 检查钥匙
         level.keys?.forEach(key => {
             if (key.x === this.cat.x && key.y === this.cat.y && !key.collected) {
                 key.collected = true;
+                this.playSound('collect_key');
                 this.createParticles(this.cat.x, this.cat.y, 'key');
                 this.showMessage(`🗝️ 找到${this.getColorName(key.color)}钥匙！`, '🗝️');
-                
+
                 level.doors?.forEach(door => {
-                    if (door.color === key.color) door.open = true;
+                    if (door.color === key.color) {
+                        door.open = true;
+                        this.playSound('door_open');
+                    }
                 });
             }
         });
@@ -1141,10 +1298,14 @@ class CatGame {
         this.currentLevel = 1;
         this.score = 0;
         this.starsCollected = 0;
+        this.stepCount = 0;
+        this.initAudio();
+        this.startBGM();
         this.loadLevel(this.currentLevel);
         this.showScreen('gameScreen');
         this.gameState = 'playing';
         this.updateScore();
+        this.updateStepCount();
     }
     
     loadLevel(levelNum) {
@@ -1168,8 +1329,10 @@ class CatGame {
     
     levelComplete() {
         this.gameState = 'levelComplete';
+        this.stopBGM();
         const starsEarned = this.calculateLevelStars();
         this.updateLevelCompleteScreen(starsEarned);
+        this.playSound('level_complete');
 
         // 解锁下一关
         if (this.currentLevel < this.maxLevels) {
@@ -1215,24 +1378,32 @@ class CatGame {
     nextLevel() {
         if (this.currentLevel < this.maxLevels) {
             this.currentLevel++;
+            this.stepCount = 0;
+            this.updateStepCount();
             this.loadLevel(this.currentLevel);
             this.showScreen('gameScreen');
             this.gameState = 'playing';
+            this.startBGM();
         } else {
             this.gameComplete();
         }
     }
-    
+
     restartLevel() {
+        this.stepCount = 0;
+        this.updateStepCount();
         this.loadLevel(this.currentLevel);
         this.showScreen('gameScreen');
         this.gameState = 'playing';
+        this.startBGM();
     }
-    
+
     gameComplete() {
         this.gameState = 'gameComplete';
+        this.stopBGM();
         document.getElementById('finalScore').textContent = this.score;
         document.getElementById('totalStars').textContent = this.starsCollected;
+        this.playSound('game_complete');
         this.showScreen('gameCompleteScreen');
     }
     
@@ -1240,6 +1411,8 @@ class CatGame {
         this.currentLevel = 1;
         this.score = 0;
         this.starsCollected = 0;
+        this.stepCount = 0;
+        this.updateStepCount();
         // 重置当前难度的关卡进度
         this.difficultyProgress[this.difficulty] = [1];
         this.saveDifficultyProgress();
@@ -1248,6 +1421,7 @@ class CatGame {
         this.showScreen('gameScreen');
         this.gameState = 'playing';
         this.updateScore();
+        this.startBGM();
     }
     
     showScreen(screenId) {
@@ -1268,14 +1442,25 @@ class CatGame {
     update() {
         this.animationFrame++;
         this.catBounce = Math.sin(this.animationFrame * 0.1) * 3;
-        
+        this.catTailWag = Math.sin(this.animationFrame * 0.12) * 0.3;
+
+        // 眨眼逻辑：每3-5秒眨眼一次
+        this.catBlinkTimer++;
+        if (this.catBlinkTimer > 180 + Math.random() * 120) {
+            this.catIsBlinking = true;
+            if (this.catBlinkTimer > 188) {
+                this.catIsBlinking = false;
+                this.catBlinkTimer = 0;
+            }
+        }
+
         for (let i = this.particles.length - 1; i >= 0; i--) {
             let p = this.particles[i];
             p.x += p.vx;
             p.y += p.vy;
             p.life--;
             p.vy += 0.1;
-            
+
             if (p.life <= 0) this.particles.splice(i, 1);
         }
     }
@@ -1283,30 +1468,65 @@ class CatGame {
     draw() {
         this.ctx.fillStyle = this.colors.background;
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-        
+
         if (this.gameState !== 'playing' && this.gameState !== 'puzzle') return;
-        
+
         const level = this.currentLevelData;
         if (!level) return;
-        
+
         this.drawGrid();
-        
+
+        // 绘制可到达的格子（高亮提示）
+        this.drawReachableCells();
+
         level.walls?.forEach(wall => this.drawWall(wall.x, wall.y));
         level.puzzles?.forEach(puzzle => this.drawPuzzle(puzzle.x, puzzle.y, puzzle.type, puzzle.solved));
         level.doors?.forEach(door => this.drawDoor(door.x, door.y, door.color, door.open));
-        
+
         this.drawHome(level.home.x, level.home.y);
-        
+
         level.stars?.forEach(star => {
             if (!star.collected) this.drawStar(star.x, star.y);
         });
-        
+
         level.keys?.forEach(key => {
             if (!key.collected) this.drawKey(key.x, key.y, key.color);
         });
-        
+
         this.drawCat();
         this.drawParticles();
+    }
+
+    // 绘制可到达的相邻格子高亮
+    drawReachableCells() {
+        const catX = this.cat.x;
+        const catY = this.cat.y;
+        const directions = [[0, -1], [0, 1], [-1, 0], [1, 0]];
+
+        directions.forEach(([dx, dy]) => {
+            const nx = catX + dx;
+            const ny = catY + dy;
+            if (nx < 0 || nx >= this.gridWidth || ny < 0 || ny >= this.gridHeight) return;
+
+            const level = this.currentLevelData;
+            if (level.walls?.some(w => w.x === nx && w.y === ny)) return;
+            if (level.doors?.some(d => d.x === nx && d.y === ny && !d.open)) return;
+            if (level.puzzles?.some(p => p.x === nx && p.y === ny && !p.solved)) return;
+
+            const px = nx * this.tileSize;
+            const py = ny * this.tileSize;
+            const pulse = Math.sin(this.animationFrame * 0.08) * 0.15 + 0.25;
+
+            this.ctx.fillStyle = `rgba(255, 182, 193, ${pulse})`;
+            this.ctx.fillRect(px + 2, py + 2, this.tileSize - 4, this.tileSize - 4);
+
+            // 柔和的边框
+            this.ctx.strokeStyle = `rgba(255, 158, 181, ${pulse + 0.2})`;
+            this.ctx.lineWidth = 2;
+            this.ctx.setLineDash([4, 4]);
+            this.ctx.strokeRect(px + 6, py + 6, this.tileSize - 12, this.tileSize - 12);
+            this.ctx.setLineDash([]);
+        });
     }
     
     drawGrid() {
@@ -1506,25 +1726,84 @@ class CatGame {
     drawHome(x, y) {
         const px = x * this.tileSize;
         const py = y * this.tileSize;
-        
-        this.ctx.fillStyle = '#FFE4B5';
-        this.ctx.fillRect(px + 5, py + 15, this.tileSize - 10, this.tileSize - 20);
-        
-        this.ctx.fillStyle = '#FF6B6B';
+        const s = this.tileSize / 60;
+
+        // 烟囱烟雾动画
+        const smokeX = px + this.tileSize * 0.7;
+        const smokeY = py + this.tileSize * 0.1;
+        for (let i = 0; i < 3; i++) {
+            const offset = ((this.animationFrame * 0.5 + i * 30) % 60);
+            const alpha = 1 - offset / 60;
+            this.ctx.fillStyle = `rgba(200, 200, 210, ${alpha * 0.6})`;
+            this.ctx.beginPath();
+            this.ctx.arc(smokeX + Math.sin(offset * 0.1) * 3, smokeY - offset * 0.4, 4 * s + offset * 0.3, 0, Math.PI * 2);
+            this.ctx.fill();
+        }
+
+        // 房子主体
+        const houseGrad = this.ctx.createLinearGradient(px, py, px, py + this.tileSize);
+        houseGrad.addColorStop(0, '#FFF8DC');
+        houseGrad.addColorStop(1, '#FFE4B5');
+        this.ctx.fillStyle = houseGrad;
+        this.roundRect(px + 5, py + 16, this.tileSize - 10, this.tileSize - 18, 5);
+        this.ctx.fill();
+
+        // 房子边框
+        this.ctx.strokeStyle = '#DEB887';
+        this.ctx.lineWidth = 2;
+        this.roundRect(px + 5, py + 16, this.tileSize - 10, this.tileSize - 18, 5);
+        this.ctx.stroke();
+
+        // 屋顶
+        this.ctx.fillStyle = '#E8594A';
         this.ctx.beginPath();
-        this.ctx.moveTo(px + 5, py + 15);
+        this.ctx.moveTo(px + 3, py + 16);
         this.ctx.lineTo(px + this.tileSize / 2, py + 2);
-        this.ctx.lineTo(px + this.tileSize - 5, py + 15);
+        this.ctx.lineTo(px + this.tileSize - 3, py + 16);
         this.ctx.closePath();
         this.ctx.fill();
-        
+
+        // 屋顶条纹
+        this.ctx.strokeStyle = '#CC4030';
+        this.ctx.lineWidth = 2;
+        this.ctx.beginPath();
+        this.ctx.moveTo(px + this.tileSize / 2, py + 10);
+        this.ctx.lineTo(px + this.tileSize / 2, py + 16);
+        this.ctx.stroke();
+
+        // 烟囱
+        this.ctx.fillStyle = '#CD853F';
+        this.ctx.fillRect(px + this.tileSize * 0.6, py + 2, 10 * s, 16 * s);
+
+        // 窗户
+        this.ctx.fillStyle = '#87CEEB';
+        this.ctx.fillRect(px + 10, py + 22, 12 * s, 12 * s);
+        this.ctx.strokeStyle = '#8B4513';
+        this.ctx.lineWidth = 1.5;
+        this.ctx.strokeRect(px + 10, py + 22, 12 * s, 12 * s);
+        this.ctx.beginPath();
+        this.ctx.moveTo(px + 10 + 6 * s, py + 22);
+        this.ctx.lineTo(px + 10 + 6 * s, py + 22 + 12 * s);
+        this.ctx.moveTo(px + 10, py + 22 + 6 * s);
+        this.ctx.lineTo(px + 10 + 12 * s, py + 22 + 6 * s);
+        this.ctx.stroke();
+
+        // 门
         this.ctx.fillStyle = '#8B4513';
-        this.ctx.fillRect(px + 20, py + 30, 20, this.tileSize - 35);
-        
+        this.ctx.beginPath();
+        this.roundRect(px + this.tileSize / 2 + 4, py + 28, 14 * s, this.tileSize - 30, 3);
+        this.ctx.fill();
+        // 门把手
+        this.ctx.fillStyle = '#FFD700';
+        this.ctx.beginPath();
+        this.ctx.arc(px + this.tileSize / 2 + 14 * s, py + this.tileSize / 2 + 4, 2 * s, 0, Math.PI * 2);
+        this.ctx.fill();
+
+        // 爱心
         this.ctx.fillStyle = '#FF69B4';
-        this.ctx.font = '16px Arial';
+        this.ctx.font = `${14 * s}px Arial`;
         this.ctx.textAlign = 'center';
-        this.ctx.fillText('🏠', px + this.tileSize / 2, py + this.tileSize / 2 + 5);
+        this.ctx.fillText('❤️', px + this.tileSize / 2 - 6, py + 24);
     }
     
     drawStar(x, y) {
@@ -1602,91 +1881,155 @@ class CatGame {
     drawCat() {
         const px = this.cat.x * this.tileSize + this.tileSize / 2;
         const py = this.cat.y * this.tileSize + this.tileSize / 2 + this.catBounce;
-        
+        const s = this.tileSize / 60; // 缩放因子
+
+        // 阴影
         this.ctx.fillStyle = 'rgba(0,0,0,0.1)';
         this.ctx.beginPath();
-        this.ctx.ellipse(px, py + 20, 18, 8, 0, 0, Math.PI * 2);
+        this.ctx.ellipse(px, py + 22 * s, 20 * s, 8 * s, 0, 0, Math.PI * 2);
         this.ctx.fill();
-        
+
+        // 尾巴 - 在身体后面摆动
+        this.ctx.save();
+        this.ctx.translate(px + 18 * s, py + 8 * s);
+        this.ctx.rotate(0.5 + this.catTailWag);
         this.ctx.fillStyle = this.colors.cat;
         this.ctx.beginPath();
-        this.ctx.arc(px, py, 20, 0, Math.PI * 2);
+        this.ctx.moveTo(0, 0);
+        this.ctx.quadraticCurveTo(12 * s, 5 * s, 18 * s, -5 * s);
+        this.ctx.quadraticCurveTo(20 * s, -10 * s, 22 * s, -2 * s);
+        this.ctx.quadraticCurveTo(14 * s, 0, 0, 2 * s);
         this.ctx.fill();
-        
+        // 尾巴尖端深色
+        this.ctx.fillStyle = '#FF85A5';
+        this.ctx.beginPath();
+        this.ctx.arc(19 * s, -4 * s, 3 * s, 0, Math.PI * 2);
+        this.ctx.fill();
+        this.ctx.restore();
+
+        // 身体
+        this.ctx.fillStyle = this.colors.cat;
+        this.ctx.beginPath();
+        this.ctx.arc(px, py, 20 * s, 0, Math.PI * 2);
+        this.ctx.fill();
+
+        // 身体条纹
+        this.ctx.strokeStyle = '#FF85A5';
+        this.ctx.lineWidth = 2 * s;
+        this.ctx.beginPath();
+        this.ctx.arc(px, py + 2 * s, 14 * s, Math.PI * 0.3, Math.PI * 0.7);
+        this.ctx.stroke();
+        this.ctx.beginPath();
+        this.ctx.arc(px, py + 2 * s, 14 * s, Math.PI * 1.3, Math.PI * 1.7);
+        this.ctx.stroke();
+
         // 耳朵
+        this.ctx.fillStyle = this.colors.cat;
         this.ctx.beginPath();
-        this.ctx.moveTo(px - 15, py - 10);
-        this.ctx.lineTo(px - 20, py - 25);
-        this.ctx.lineTo(px - 5, py - 18);
+        this.ctx.moveTo(px - 16 * s, py - 10 * s);
+        this.ctx.lineTo(px - 21 * s, py - 26 * s);
+        this.ctx.lineTo(px - 6 * s, py - 19 * s);
         this.ctx.closePath();
         this.ctx.fill();
-        
+
         this.ctx.beginPath();
-        this.ctx.moveTo(px + 15, py - 10);
-        this.ctx.lineTo(px + 20, py - 25);
-        this.ctx.lineTo(px + 5, py - 18);
+        this.ctx.moveTo(px + 16 * s, py - 10 * s);
+        this.ctx.lineTo(px + 21 * s, py - 26 * s);
+        this.ctx.lineTo(px + 6 * s, py - 19 * s);
         this.ctx.closePath();
         this.ctx.fill();
-        
+
         // 耳朵内部
         this.ctx.fillStyle = '#FFB6C1';
         this.ctx.beginPath();
-        this.ctx.moveTo(px - 13, py - 12);
-        this.ctx.lineTo(px - 17, py - 20);
-        this.ctx.lineTo(px - 8, py - 16);
+        this.ctx.moveTo(px - 14 * s, py - 12 * s);
+        this.ctx.lineTo(px - 17 * s, py - 21 * s);
+        this.ctx.lineTo(px - 8 * s, py - 17 * s);
         this.ctx.closePath();
         this.ctx.fill();
-        
+
         this.ctx.beginPath();
-        this.ctx.moveTo(px + 13, py - 12);
-        this.ctx.lineTo(px + 17, py - 20);
-        this.ctx.lineTo(px + 8, py - 16);
+        this.ctx.moveTo(px + 14 * s, py - 12 * s);
+        this.ctx.lineTo(px + 17 * s, py - 21 * s);
+        this.ctx.lineTo(px + 8 * s, py - 17 * s);
         this.ctx.closePath();
         this.ctx.fill();
-        
+
         // 眼睛
-        this.ctx.fillStyle = '#333';
-        this.ctx.beginPath();
-        this.ctx.arc(px - 7, py - 3, 4, 0, Math.PI * 2);
-        this.ctx.arc(px + 7, py - 3, 4, 0, Math.PI * 2);
-        this.ctx.fill();
-        
-        // 眼睛高光
-        this.ctx.fillStyle = '#FFF';
-        this.ctx.beginPath();
-        this.ctx.arc(px - 8, py - 5, 2, 0, Math.PI * 2);
-        this.ctx.arc(px + 6, py - 5, 2, 0, Math.PI * 2);
-        this.ctx.fill();
-        
+        if (!this.catIsBlinking) {
+            this.ctx.fillStyle = '#333';
+            this.ctx.beginPath();
+            this.ctx.arc(px - 7 * s, py - 3 * s, 4 * s, 0, Math.PI * 2);
+            this.ctx.arc(px + 7 * s, py - 3 * s, 4 * s, 0, Math.PI * 2);
+            this.ctx.fill();
+
+            // 眼睛高光
+            this.ctx.fillStyle = '#FFF';
+            this.ctx.beginPath();
+            this.ctx.arc(px - 8 * s, py - 5 * s, 2 * s, 0, Math.PI * 2);
+            this.ctx.arc(px + 6 * s, py - 5 * s, 2 * s, 0, Math.PI * 2);
+            this.ctx.fill();
+        } else {
+            // 眨眼：眯成一条线
+            this.ctx.strokeStyle = '#333';
+            this.ctx.lineWidth = 2 * s;
+            this.ctx.beginPath();
+            this.ctx.moveTo(px - 11 * s, py - 3 * s);
+            this.ctx.lineTo(px - 3 * s, py - 3 * s);
+            this.ctx.moveTo(px + 3 * s, py - 3 * s);
+            this.ctx.lineTo(px + 11 * s, py - 3 * s);
+            this.ctx.stroke();
+        }
+
         // 鼻子
         this.ctx.fillStyle = '#FF69B4';
         this.ctx.beginPath();
-        this.ctx.arc(px, py + 3, 3, 0, Math.PI * 2);
+        this.ctx.moveTo(px, py + 1 * s);
+        this.ctx.lineTo(px - 3 * s, py + 4 * s);
+        this.ctx.lineTo(px + 3 * s, py + 4 * s);
+        this.ctx.closePath();
         this.ctx.fill();
-        
+
         // 嘴巴
         this.ctx.strokeStyle = '#333';
-        this.ctx.lineWidth = 2;
+        this.ctx.lineWidth = 1.5 * s;
         this.ctx.beginPath();
-        this.ctx.arc(px - 5, py + 8, 5, 0, Math.PI);
+        this.ctx.arc(px - 5 * s, py + 8 * s, 5 * s, 0, Math.PI);
         this.ctx.stroke();
         this.ctx.beginPath();
-        this.ctx.arc(px + 5, py + 8, 5, 0, Math.PI);
+        this.ctx.arc(px + 5 * s, py + 8 * s, 5 * s, 0, Math.PI);
         this.ctx.stroke();
-        
+
         // 胡须
-        this.ctx.strokeStyle = '#999';
-        this.ctx.lineWidth = 1;
+        this.ctx.strokeStyle = '#AAA';
+        this.ctx.lineWidth = 1 * s;
+        [-1, 1].forEach(side => {
+            const sx = side > 0 ? 1 : -1;
+            this.ctx.beginPath();
+            this.ctx.moveTo(px + sx * 18 * s, py);
+            this.ctx.lineTo(px + sx * 30 * s, py - 2 * s);
+            this.ctx.moveTo(px + sx * 18 * s, py + 4 * s);
+            this.ctx.lineTo(px + sx * 30 * s, py + 6 * s);
+            this.ctx.moveTo(px + sx * 17 * s, py + 8 * s);
+            this.ctx.lineTo(px + sx * 28 * s, py + 13 * s);
+            this.ctx.stroke();
+        });
+
+        // 小爪子（前腿）
+        this.ctx.fillStyle = this.colors.cat;
         this.ctx.beginPath();
-        this.ctx.moveTo(px - 20, py + 2);
-        this.ctx.lineTo(px - 30, py);
-        this.ctx.moveTo(px - 20, py + 6);
-        this.ctx.lineTo(px - 30, py + 8);
-        this.ctx.moveTo(px + 20, py + 2);
-        this.ctx.lineTo(px + 30, py);
-        this.ctx.moveTo(px + 20, py + 6);
-        this.ctx.lineTo(px + 30, py + 8);
-        this.ctx.stroke();
+        this.ctx.ellipse(px - 10 * s, py + 18 * s, 5 * s, 3 * s, -0.3, 0, Math.PI * 2);
+        this.ctx.fill();
+        this.ctx.beginPath();
+        this.ctx.ellipse(px + 10 * s, py + 18 * s, 5 * s, 3 * s, 0.3, 0, Math.PI * 2);
+        this.ctx.fill();
+
+        // 爪垫
+        this.ctx.fillStyle = '#FFB6C1';
+        this.ctx.beginPath();
+        this.ctx.arc(px - 12 * s, py + 18 * s, 2 * s, 0, Math.PI * 2);
+        this.ctx.arc(px + 12 * s, py + 18 * s, 2 * s, 0, Math.PI * 2);
+        this.ctx.fill();
     }
     
     drawParticles() {

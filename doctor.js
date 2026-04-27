@@ -467,6 +467,7 @@ class DoctorGame {
 
         this.doctor.x = x;
         this.doctor.y = y;
+        this.playSound('move');
 
         // 创建移动粒子效果
         for (let i = 0; i < 5; i++) {
@@ -495,6 +496,7 @@ class DoctorGame {
         if (pillIndex !== -1) {
             level.pills[pillIndex].collected = true;
             this.pillsCollected++;
+            this.playSound('collect_pill');
             this.createCollectionEffect(this.doctor.x, this.doctor.y, 'pill');
             this.updatePillDisplay();
             this.showMessage('获得药片！', '💊');
@@ -509,8 +511,10 @@ class DoctorGame {
         if (this.doctor.x === level.rabbit.x && this.doctor.y === level.rabbit.y) {
             if (this.pillsCollected >= this.pillsNeeded) {
                 // 小兔子康复动画
+                this.playSound('heal');
                 this.healRabbit();
             } else {
+                this.playSound('need_pills');
                 this.showMessage(`还需要 ${this.pillsNeeded - this.pillsCollected} 个药片！`, '🐰');
             }
         }
@@ -1299,8 +1303,75 @@ class DoctorGame {
             this.weatherMusicGain = this.audioCtx.createGain();
             this.weatherMusicGain.gain.value = 0;
             this.weatherMusicGain.connect(this.audioCtx.destination);
+
+            // 音效独立增益节点
+            this.sfxGain = this.audioCtx.createGain();
+            this.sfxGain.gain.value = 0.3;
+            this.sfxGain.connect(this.audioCtx.destination);
         } catch (e) {
             console.log('Web Audio API 不可用');
+        }
+    }
+
+    // 播放音效
+    playSound(type) {
+        if (!this.audioCtx) return;
+        const ctx = this.audioCtx;
+        const now = ctx.currentTime;
+        const dest = this.sfxGain || ctx.destination;
+
+        const createOsc = (oscType, freq, start, duration, gainVal = 0.15) => {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = oscType;
+            osc.frequency.setValueAtTime(freq, now + start);
+            gain.gain.setValueAtTime(gainVal, now + start);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + start + duration);
+            osc.connect(gain);
+            gain.connect(dest);
+            osc.start(now + start);
+            osc.stop(now + start + duration);
+        };
+
+        switch (type) {
+            case 'move':
+                createOsc('sine', 500, 0, 0.06, 0.05);
+                createOsc('sine', 750, 0.02, 0.05, 0.03);
+                break;
+            case 'collect_pill':
+                createOsc('sine', 660, 0, 0.12, 0.18);
+                createOsc('sine', 990, 0.04, 0.15, 0.12);
+                createOsc('triangle', 1320, 0.08, 0.2, 0.08);
+                break;
+            case 'puzzle_correct':
+                createOsc('sine', 523, 0, 0.1, 0.2);
+                createOsc('sine', 659, 0.1, 0.1, 0.2);
+                createOsc('sine', 784, 0.2, 0.1, 0.2);
+                createOsc('sine', 1047, 0.3, 0.3, 0.2);
+                break;
+            case 'puzzle_wrong':
+                createOsc('square', 200, 0, 0.2, 0.06);
+                createOsc('square', 150, 0.1, 0.25, 0.05);
+                break;
+            case 'heal':
+                [523, 659, 784, 1047, 1319].forEach((freq, i) => {
+                    createOsc('sine', freq, i * 0.1, 0.25, 0.12);
+                });
+                break;
+            case 'level_complete':
+                [523, 659, 784, 1047, 784, 1047].forEach((freq, i) => {
+                    createOsc('sine', freq, i * 0.12, 0.2, 0.15);
+                });
+                break;
+            case 'game_complete':
+                [523, 659, 784, 1047, 1319, 1568, 1047, 1568].forEach((freq, i) => {
+                    createOsc('sine', freq, i * 0.1, 0.25, 0.15);
+                });
+                break;
+            case 'need_pills':
+                createOsc('triangle', 300, 0, 0.15, 0.08);
+                createOsc('triangle', 250, 0.1, 0.2, 0.06);
+                break;
         }
     }
 
@@ -1604,6 +1675,7 @@ class DoctorGame {
 
         if (correct) {
             this.currentPuzzle.solved = true;
+            this.playSound('puzzle_correct');
 
             // 找到对应的药片并收集
             const pill = this.pills.find(p =>
@@ -1629,6 +1701,7 @@ class DoctorGame {
                 }
             }, 1000);
         } else {
+            this.playSound('puzzle_wrong');
             setTimeout(() => {
                 options.forEach(btn => {
                     btn.disabled = false;
@@ -1650,6 +1723,7 @@ class DoctorGame {
     levelComplete() {
         this.gameState = 'levelComplete';
         this.stopWeatherMusic();
+        this.playSound('level_complete');
         this.showScreen('levelCompleteScreen');
 
         // 绘制全身蹦跳的小兔子
@@ -1837,6 +1911,7 @@ class DoctorGame {
     gameComplete() {
         this.gameState = 'gameComplete';
         this.stopWeatherMusic();
+        this.playSound('game_complete');
         document.getElementById('totalPills').textContent = this.pillsCollected;
         document.getElementById('healedRabbits').textContent = this.currentLevel;
         this.showScreen('gameCompleteScreen');
@@ -1902,6 +1977,11 @@ class DoctorGame {
         // 绘制网格
         this.drawGrid();
 
+        // 绘制可到达格子高亮
+        if (this.gameState === 'playing') {
+            this.drawReachableCells();
+        }
+
         // 绘制墙壁
         this.drawWalls();
 
@@ -1959,6 +2039,33 @@ class DoctorGame {
         this.ctx.strokeStyle = 'rgba(56, 142, 60, 0.5)';
         this.ctx.lineWidth = 2;
         this.ctx.strokeRect(0.5, 0.5, this.canvas.width - 1, this.canvas.height - 1);
+    }
+
+    // 绘制可到达格子高亮
+    drawReachableCells() {
+        const dx = this.doctor.x;
+        const dy = this.doctor.y;
+        const directions = [[0, -1], [0, 1], [-1, 0], [1, 0]];
+        const level = this.currentLevelData;
+        if (!level) return;
+
+        directions.forEach(([ox, oy]) => {
+            const nx = dx + ox;
+            const ny = dy + oy;
+            if (nx < 0 || nx >= this.gridWidth || ny < 0 || ny >= this.gridHeight) return;
+            if (level.walls.some(w => w.x === nx && w.y === ny)) return;
+
+            const pulse = Math.sin(Date.now() * 0.005) * 0.15 + 0.25;
+
+            this.ctx.fillStyle = `rgba(102, 187, 106, ${pulse})`;
+            this.ctx.fillRect(nx * this.tileSize + 2, ny * this.tileSize + 2, this.tileSize - 4, this.tileSize - 4);
+
+            this.ctx.strokeStyle = `rgba(76, 175, 80, ${pulse + 0.2})`;
+            this.ctx.lineWidth = 2;
+            this.ctx.setLineDash([4, 4]);
+            this.ctx.strokeRect(nx * this.tileSize + 6, ny * this.tileSize + 6, this.tileSize - 12, this.tileSize - 12);
+            this.ctx.setLineDash([]);
+        });
     }
 
     // 绘制墙壁
@@ -2193,25 +2300,63 @@ class DoctorGame {
         // 阴影
         this.ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
         this.ctx.beginPath();
-        this.ctx.ellipse(x + size * 0.5, y + size * 0.85, size * 0.3, size * 0.1, 0, 0, Math.PI * 2);
+        this.ctx.ellipse(x + size * 0.5, y + size * 0.88, size * 0.3, size * 0.08, 0, 0, Math.PI * 2);
+        this.ctx.fill();
+
+        // 腿
+        this.ctx.strokeStyle = '#37474F';
+        this.ctx.lineWidth = size * 0.1;
+        this.ctx.lineCap = 'round';
+        this.ctx.beginPath();
+        this.ctx.moveTo(x + size * 0.4, y + size * 0.85);
+        this.ctx.lineTo(x + size * 0.38, y + size * 0.98);
+        this.ctx.moveTo(x + size * 0.6, y + size * 0.85);
+        this.ctx.lineTo(x + size * 0.62, y + size * 0.98);
+        this.ctx.stroke();
+
+        // 鞋子
+        this.ctx.fillStyle = '#263238';
+        this.ctx.beginPath();
+        this.ctx.ellipse(x + size * 0.36, y + size * 0.98, size * 0.07, size * 0.04, 0, 0, Math.PI * 2);
+        this.ctx.ellipse(x + size * 0.64, y + size * 0.98, size * 0.07, size * 0.04, 0, 0, Math.PI * 2);
         this.ctx.fill();
 
         // 身体（白大褂）
-        this.ctx.fillStyle = 'white';
+        const coatGrad = this.ctx.createLinearGradient(x, y + size * 0.4, x, y + size * 0.9);
+        coatGrad.addColorStop(0, '#FFFFFF');
+        coatGrad.addColorStop(1, '#F5F5F5');
+        this.ctx.fillStyle = coatGrad;
         this.ctx.beginPath();
-        this.ctx.moveTo(x + size * 0.3, y + size * 0.85);
-        this.ctx.lineTo(x + size * 0.35, y + size * 0.45);
-        this.ctx.lineTo(x + size * 0.65, y + size * 0.45);
-        this.ctx.lineTo(x + size * 0.7, y + size * 0.85);
+        this.ctx.moveTo(x + size * 0.28, y + size * 0.85);
+        this.ctx.lineTo(x + size * 0.33, y + size * 0.45);
+        this.ctx.lineTo(x + size * 0.67, y + size * 0.45);
+        this.ctx.lineTo(x + size * 0.72, y + size * 0.85);
         this.ctx.closePath();
         this.ctx.fill();
 
-        // 白大褂领口
+        // 白大褂口袋
         this.ctx.strokeStyle = '#E0E0E0';
         this.ctx.lineWidth = 1;
+        this.ctx.strokeRect(x + size * 0.6, y + size * 0.6, size * 0.08, size * 0.08);
+        // 口袋里的笔
+        this.ctx.fillStyle = '#E91E63';
+        this.ctx.fillRect(x + size * 0.62, y + size * 0.57, size * 0.02, size * 0.06);
+        this.ctx.fillStyle = '#2196F3';
+        this.ctx.fillRect(x + size * 0.65, y + size * 0.58, size * 0.02, size * 0.05);
+
+        // 白大褂纽扣
+        this.ctx.fillStyle = '#B0BEC5';
+        this.ctx.beginPath();
+        this.ctx.arc(x + size * 0.5, y + size * 0.55, size * 0.02, 0, Math.PI * 2);
+        this.ctx.arc(x + size * 0.5, y + size * 0.65, size * 0.02, 0, Math.PI * 2);
+        this.ctx.fill();
+
+        // 白大褂领口
+        this.ctx.strokeStyle = '#90A4AE';
+        this.ctx.lineWidth = 1.5;
         this.ctx.beginPath();
         this.ctx.moveTo(x + size * 0.42, y + size * 0.45);
-        this.ctx.lineTo(x + size * 0.5, y + size * 0.55);
+        this.ctx.lineTo(x + size * 0.5, y + size * 0.53);
         this.ctx.lineTo(x + size * 0.58, y + size * 0.45);
         this.ctx.stroke();
 
@@ -2222,70 +2367,116 @@ class DoctorGame {
         // 头
         this.ctx.fillStyle = '#FFCCBC';
         this.ctx.beginPath();
-        this.ctx.arc(x + size * 0.5, y + size * 0.3, size * 0.18, 0, Math.PI * 2);
+        this.ctx.arc(x + size * 0.5, y + size * 0.28, size * 0.18, 0, Math.PI * 2);
         this.ctx.fill();
 
         // 头发
         this.ctx.fillStyle = '#5D4037';
         this.ctx.beginPath();
-        this.ctx.arc(x + size * 0.5, y + size * 0.25, size * 0.18, Math.PI, 0);
+        this.ctx.arc(x + size * 0.5, y + size * 0.23, size * 0.19, Math.PI, 0);
         this.ctx.fill();
+        // 头发侧边
+        this.ctx.fillRect(x + size * 0.31, y + size * 0.2, size * 0.06, size * 0.1);
+        this.ctx.fillRect(x + size * 0.63, y + size * 0.2, size * 0.06, size * 0.1);
+
+        // 医生帽
+        this.ctx.fillStyle = 'white';
+        this.ctx.beginPath();
+        this.ctx.ellipse(x + size * 0.5, y + size * 0.13, size * 0.16, size * 0.05, 0, 0, Math.PI * 2);
+        this.ctx.fill();
+        this.ctx.fillRect(x + size * 0.35, y + size * 0.08, size * 0.3, size * 0.1);
+        // 帽檐底部弧线
+        this.ctx.fillStyle = '#F5F5F5';
+        this.ctx.beginPath();
+        this.ctx.ellipse(x + size * 0.5, y + size * 0.18, size * 0.16, size * 0.04, 0, 0, Math.PI * 2);
+        this.ctx.fill();
+        // 红十字标记
+        this.ctx.fillStyle = '#E91E63';
+        this.ctx.fillRect(x + size * 0.47, y + size * 0.06, size * 0.06, size * 0.12);
+        this.ctx.fillRect(x + size * 0.44, y + size * 0.09, size * 0.12, size * 0.06);
 
         // 眼睛
         this.ctx.fillStyle = '#333';
         this.ctx.beginPath();
-        this.ctx.arc(x + size * 0.44, y + size * 0.28, size * 0.03, 0, Math.PI * 2);
-        this.ctx.arc(x + size * 0.56, y + size * 0.28, size * 0.03, 0, Math.PI * 2);
+        this.ctx.arc(x + size * 0.43, y + size * 0.26, size * 0.035, 0, Math.PI * 2);
+        this.ctx.arc(x + size * 0.57, y + size * 0.26, size * 0.035, 0, Math.PI * 2);
+        this.ctx.fill();
+
+        // 眼睛高光
+        this.ctx.fillStyle = 'white';
+        this.ctx.beginPath();
+        this.ctx.arc(x + size * 0.42, y + size * 0.25, size * 0.015, 0, Math.PI * 2);
+        this.ctx.arc(x + size * 0.56, y + size * 0.25, size * 0.015, 0, Math.PI * 2);
         this.ctx.fill();
 
         // 微笑
-        this.ctx.strokeStyle = '#333';
-        this.ctx.lineWidth = 2;
+        this.ctx.strokeStyle = '#5D4037';
+        this.ctx.lineWidth = 1.5;
         this.ctx.beginPath();
-        this.ctx.arc(x + size * 0.5, y + size * 0.32, size * 0.08, 0.2, Math.PI - 0.2);
+        this.ctx.arc(x + size * 0.5, y + size * 0.3, size * 0.07, 0.2, Math.PI - 0.2);
+        this.ctx.stroke();
+
+        // 眼镜
+        this.ctx.strokeStyle = '#546E7A';
+        this.ctx.lineWidth = 1.5;
+        this.ctx.beginPath();
+        this.ctx.arc(x + size * 0.43, y + size * 0.26, size * 0.055, 0, Math.PI * 2);
+        this.ctx.stroke();
+        this.ctx.beginPath();
+        this.ctx.arc(x + size * 0.57, y + size * 0.26, size * 0.055, 0, Math.PI * 2);
+        this.ctx.stroke();
+        // 眼镜桥
+        this.ctx.beginPath();
+        this.ctx.moveTo(x + size * 0.485, y + size * 0.26);
+        this.ctx.lineTo(x + size * 0.515, y + size * 0.26);
         this.ctx.stroke();
 
         // 听诊器
         this.ctx.strokeStyle = '#424242';
-        this.ctx.lineWidth = 3;
-        this.ctx.beginPath();
-        this.ctx.moveTo(x + size * 0.5, y + size * 0.45);
-        this.ctx.quadraticCurveTo(x + size * 0.3, y + size * 0.5, x + size * 0.35, y + size * 0.6);
-        this.ctx.stroke();
-
-        // 听诊器头
-        this.ctx.fillStyle = '#616161';
-        this.ctx.beginPath();
-        this.ctx.arc(x + size * 0.38, y + size * 0.62, size * 0.05, 0, Math.PI * 2);
-        this.ctx.fill();
-
-        // 手臂
-        this.ctx.strokeStyle = 'white';
-        this.ctx.lineWidth = 8;
+        this.ctx.lineWidth = 2.5;
         this.ctx.lineCap = 'round';
         this.ctx.beginPath();
-        this.ctx.moveTo(x + size * 0.35, y + size * 0.5);
-        this.ctx.lineTo(x + size * 0.25, y + size * 0.7);
-        this.ctx.moveTo(x + size * 0.65, y + size * 0.5);
-        this.ctx.lineTo(x + size * 0.75, y + size * 0.7);
+        this.ctx.moveTo(x + size * 0.48, y + size * 0.43);
+        this.ctx.quadraticCurveTo(x + size * 0.28, y + size * 0.5, x + size * 0.33, y + size * 0.62);
+        this.ctx.stroke();
+
+        // 听诊器头（金属圆盘）
+        this.ctx.fillStyle = '#9E9E9E';
+        this.ctx.beginPath();
+        this.ctx.arc(x + size * 0.33, y + size * 0.65, size * 0.06, 0, Math.PI * 2);
+        this.ctx.fill();
+        this.ctx.fillStyle = '#BDBDBD';
+        this.ctx.beginPath();
+        this.ctx.arc(x + size * 0.33, y + size * 0.64, size * 0.03, 0, Math.PI * 2);
+        this.ctx.fill();
+
+        // 手臂（白大褂袖子）
+        this.ctx.strokeStyle = 'white';
+        this.ctx.lineWidth = size * 0.1;
+        this.ctx.lineCap = 'round';
+        this.ctx.beginPath();
+        this.ctx.moveTo(x + size * 0.33, y + size * 0.5);
+        this.ctx.lineTo(x + size * 0.23, y + size * 0.7);
+        this.ctx.moveTo(x + size * 0.67, y + size * 0.5);
+        this.ctx.lineTo(x + size * 0.77, y + size * 0.7);
         this.ctx.stroke();
 
         // 手
         this.ctx.fillStyle = '#FFCCBC';
         this.ctx.beginPath();
-        this.ctx.arc(x + size * 0.25, y + size * 0.72, size * 0.05, 0, Math.PI * 2);
-        this.ctx.arc(x + size * 0.75, y + size * 0.72, size * 0.05, 0, Math.PI * 2);
+        this.ctx.arc(x + size * 0.22, y + size * 0.72, size * 0.05, 0, Math.PI * 2);
+        this.ctx.arc(x + size * 0.78, y + size * 0.72, size * 0.05, 0, Math.PI * 2);
         this.ctx.fill();
 
-        // 腿
-        this.ctx.strokeStyle = '#37474F';
-        this.ctx.lineWidth = 8;
-        this.ctx.beginPath();
-        this.ctx.moveTo(x + size * 0.4, y + size * 0.85);
-        this.ctx.lineTo(x + size * 0.38, y + size * 0.98);
-        this.ctx.moveTo(x + size * 0.6, y + size * 0.85);
-        this.ctx.lineTo(x + size * 0.62, y + size * 0.98);
-        this.ctx.stroke();
+        // 手提医药箱（右手）
+        this.ctx.fillStyle = '#795548';
+        this.ctx.fillRect(x + size * 0.75, y + size * 0.68, size * 0.1, size * 0.08);
+        this.ctx.fillStyle = '#5D4037';
+        this.ctx.fillRect(x + size * 0.78, y + size * 0.66, size * 0.04, size * 0.03);
+        // 医药箱红十字
+        this.ctx.fillStyle = '#E91E63';
+        this.ctx.fillRect(x + size * 0.79, y + size * 0.695, size * 0.02, size * 0.05);
+        this.ctx.fillRect(x + size * 0.775, y + size * 0.71, size * 0.05, size * 0.02);
     }
 
     // 绘制谜题标记
