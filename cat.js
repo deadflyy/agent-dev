@@ -47,6 +47,10 @@ class CatGame {
         this.audioCtx = null;
         this.audioInitialized = false;
 
+        // 资源加载器
+        this.assetLoader = new AssetLoader();
+        this.assetsReady = false;
+
         // 颜色主题
         this.colors = {
             background: '#FFF5F7',
@@ -222,8 +226,49 @@ class CatGame {
 
     init() {
         this.bindEvents();
+        this.loadAssets();
         this.startScreen();
         this.gameLoop();
+    }
+
+    async loadAssets() {
+        const manifest = {
+            images: {
+                cat: 'assets/images/cat/cat.svg',
+                home: 'assets/images/cat/home.svg',
+                star: 'assets/images/cat/star.svg',
+                wall: 'assets/images/cat/wall-tile.svg',
+                'door-red-closed': 'assets/images/cat/door-red-closed.svg',
+                'door-red-open': 'assets/images/cat/door-red-open.svg',
+                'door-blue-closed': 'assets/images/cat/door-blue-closed.svg',
+                'door-blue-open': 'assets/images/cat/door-blue-open.svg',
+                'door-green-closed': 'assets/images/cat/door-green-closed.svg',
+                'door-green-open': 'assets/images/cat/door-green-open.svg',
+                'door-yellow-closed': 'assets/images/cat/door-yellow-closed.svg',
+                'door-yellow-open': 'assets/images/cat/door-yellow-open.svg',
+                'key-red': 'assets/images/cat/key-red.svg',
+                'key-blue': 'assets/images/cat/key-blue.svg',
+                'key-green': 'assets/images/cat/key-green.svg',
+                'key-yellow': 'assets/images/cat/key-yellow.svg',
+            },
+            sounds: {
+                move: 'assets/sounds/cat/move.wav',
+                collect_star: 'assets/sounds/shared/collect.wav',
+                collect_key: 'assets/sounds/shared/collect.wav',
+                puzzle_correct: 'assets/sounds/shared/correct.wav',
+                puzzle_wrong: 'assets/sounds/shared/wrong.wav',
+                door_open: 'assets/sounds/cat/door-open.wav',
+                level_complete: 'assets/sounds/shared/level-complete.wav',
+                game_complete: 'assets/sounds/shared/game-complete.wav',
+                bgm: 'assets/sounds/cat/bgm.wav',
+            }
+        };
+        try {
+            await this.assetLoader.loadAll(manifest);
+            this.assetsReady = true;
+        } catch (e) {
+            console.warn('资源加载失败，使用降级渲染', e);
+        }
     }
 
     // 初始化音频上下文
@@ -239,6 +284,9 @@ class CatGame {
 
     // 播放音效
     playSound(type) {
+        // 优先使用音频文件
+        if (this.assetLoader.playSound(type, 0.5)) return;
+        // 降级到 Web Audio 合成
         if (!this.audioCtx) return;
         const ctx = this.audioCtx;
         const now = ctx.currentTime;
@@ -298,10 +346,20 @@ class CatGame {
         }
     }
 
-    // 播放背景音乐（轻快的旋律）
+    // 播放背景音乐
     startBGM() {
-        if (!this.audioCtx) return;
         this.stopBGM();
+        // 优先使用音频文件
+        const bgm = this.assetLoader.getSound('bgm');
+        if (bgm) {
+            bgm.loop = true;
+            bgm.volume = 0.3;
+            bgm.play().catch(() => {});
+            this._bgmAudio = bgm;
+            return;
+        }
+        // 降级到 Web Audio 合成
+        if (!this.audioCtx) return;
 
         const ctx = this.audioCtx;
         const now = ctx.currentTime;
@@ -350,6 +408,13 @@ class CatGame {
     }
 
     stopBGM() {
+        // 停止音频文件
+        if (this._bgmAudio) {
+            this._bgmAudio.pause();
+            this._bgmAudio.currentTime = 0;
+            this._bgmAudio = null;
+        }
+        // 停止合成音乐
         this._bgmPlaying = false;
         if (this._bgmTimer) clearTimeout(this._bgmTimer);
         if (this._bgmNodes) {
@@ -1551,14 +1616,17 @@ class CatGame {
     drawWall(x, y) {
         const px = x * this.tileSize;
         const py = y * this.tileSize;
-        
+        const img = this.assetLoader.getImage('wall');
+        if (img) {
+            this.ctx.drawImage(img, px + 2, py + 2, this.tileSize - 4, this.tileSize - 4);
+            return;
+        }
+        // 降级: Canvas 矢量绘制
         this.ctx.fillStyle = this.colors.wall;
         this.ctx.fillRect(px + 2, py + 2, this.tileSize - 4, this.tileSize - 4);
-        
         this.ctx.fillStyle = '#FFB6C1';
         const centerX = px + this.tileSize / 2;
         const centerY = py + this.tileSize / 2;
-        
         for (let i = 0; i < 4; i++) {
             const angle = (i * Math.PI) / 2;
             const petalX = centerX + Math.cos(angle) * 8;
@@ -1567,7 +1635,6 @@ class CatGame {
             this.ctx.arc(petalX, petalY, 5, 0, Math.PI * 2);
             this.ctx.fill();
         }
-        
         this.ctx.fillStyle = '#FFD700';
         this.ctx.beginPath();
         this.ctx.arc(centerX, centerY, 4, 0, Math.PI * 2);
@@ -1620,6 +1687,15 @@ class CatGame {
         const centerX = px + this.tileSize / 2;
         const centerY = py + this.tileSize / 2;
 
+        // 优先使用 sprite
+        const state = open ? 'open' : 'closed';
+        const img = this.assetLoader.getImage(`door-${color}-${state}`);
+        if (img) {
+            this.ctx.drawImage(img, px + 2, py + 2, this.tileSize - 4, this.tileSize - 4);
+            return;
+        }
+
+        // 降级: Canvas 矢量绘制
         const colors = {
             red: { main: '#FF6B6B', dark: '#E55A5A', light: '#FF8787' },
             blue: { main: '#4A90E2', dark: '#3A7BC8', light: '#6BA5E7' },
@@ -1728,6 +1804,25 @@ class CatGame {
         const py = y * this.tileSize;
         const s = this.tileSize / 60;
 
+        // 优先使用 sprite
+        const img = this.assetLoader.getImage('home');
+        if (img) {
+            this.ctx.drawImage(img, px + 2, py + 2, this.tileSize - 4, this.tileSize - 4);
+            // 保留烟囱烟雾动画叠加在 sprite 上
+            const smokeX = px + this.tileSize * 0.7;
+            const smokeY = py + this.tileSize * 0.1;
+            for (let i = 0; i < 3; i++) {
+                const offset = ((this.animationFrame * 0.5 + i * 30) % 60);
+                const alpha = 1 - offset / 60;
+                this.ctx.fillStyle = `rgba(200, 200, 210, ${alpha * 0.6})`;
+                this.ctx.beginPath();
+                this.ctx.arc(smokeX + Math.sin(offset * 0.1) * 3, smokeY - offset * 0.4, 4 * s + offset * 0.3, 0, Math.PI * 2);
+                this.ctx.fill();
+            }
+            return;
+        }
+
+        // 降级: Canvas 矢量绘制
         // 烟囱烟雾动画
         const smokeX = px + this.tileSize * 0.7;
         const smokeY = py + this.tileSize * 0.1;
@@ -1810,7 +1905,13 @@ class CatGame {
         const px = x * this.tileSize + this.tileSize / 2;
         const py = y * this.tileSize + this.tileSize / 2;
         const bounce = Math.sin(this.animationFrame * 0.15) * 3;
-        
+        const img = this.assetLoader.getImage('star');
+        if (img) {
+            const size = this.tileSize * 0.6;
+            this.ctx.drawImage(img, px - size / 2, py - size / 2 + bounce, size, size);
+            return;
+        }
+        // 降级
         this.ctx.font = '30px Arial';
         this.ctx.textAlign = 'center';
         this.ctx.textBaseline = 'middle';
@@ -1823,6 +1924,15 @@ class CatGame {
         const bounce = Math.sin(this.animationFrame * 0.12) * 2;
         const keyY = py + bounce;
 
+        // 优先使用 sprite
+        const img = this.assetLoader.getImage(`key-${color}`);
+        if (img) {
+            const size = this.tileSize * 0.6;
+            this.ctx.drawImage(img, px - size / 2, keyY - size / 2, size, size);
+            return;
+        }
+
+        // 降级: Canvas 矢量绘制
         const colors = {
             red: { main: '#FF6B6B', dark: '#E55A5A', light: '#FF8787' },
             blue: { main: '#4A90E2', dark: '#3A7BC8', light: '#6BA5E7' },
@@ -1883,6 +1993,20 @@ class CatGame {
         const py = this.cat.y * this.tileSize + this.tileSize / 2 + this.catBounce;
         const s = this.tileSize / 60; // 缩放因子
 
+        // 优先使用 sprite
+        const img = this.assetLoader.getImage('cat');
+        if (img) {
+            const size = this.tileSize * 0.85;
+            // 阴影
+            this.ctx.fillStyle = 'rgba(0,0,0,0.1)';
+            this.ctx.beginPath();
+            this.ctx.ellipse(px, py + 22 * s, 20 * s, 8 * s, 0, 0, Math.PI * 2);
+            this.ctx.fill();
+            this.ctx.drawImage(img, px - size / 2, py - size / 2 + this.catBounce, size, size);
+            return;
+        }
+
+        // 降级: Canvas 矢量绘制
         // 阴影
         this.ctx.fillStyle = 'rgba(0,0,0,0.1)';
         this.ctx.beginPath();

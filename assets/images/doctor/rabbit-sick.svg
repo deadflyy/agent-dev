@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <defs>
+    <radialGradient id="rabbitBody" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#FFFFFF"/>
+      <stop offset="100%" stop-color="#E8E8E8"/>
+    </radialGradient>
+  </defs>
+  <!-- Ears (droopy) -->
+  <ellipse cx="45" cy="25" rx="10" ry="30" fill="white" stroke="#DDD" stroke-width="2" transform="rotate(-20 45 25)"/>
+  <ellipse cx="45" cy="25" rx="5" ry="20" fill="#FFB6C1" transform="rotate(-20 45 25)"/>
+  <ellipse cx="83" cy="25" rx="10" ry="30" fill="white" stroke="#DDD" stroke-width="2" transform="rotate(20 83 25)"/>
+  <ellipse cx="83" cy="25" rx="5" ry="20" fill="#FFB6C1" transform="rotate(20 83 25)"/>
+  <!-- Head -->
+  <circle cx="64" cy="55" r="28" fill="url(#rabbitBody)" stroke="#DDD" stroke-width="2"/>
+  <!-- Eyes (sad, half-closed) -->
+  <ellipse cx="54" cy="50" rx="5" ry="4" fill="white"/>
+  <ellipse cx="74" cy="50" rx="5" ry="4" fill="white"/>
+  <circle cx="55" cy="51" r="3" fill="#333"/>
+  <circle cx="75" cy="51" r="3" fill="#333"/>
+  <circle cx="56" cy="49" r="1.5" fill="white"/>
+  <circle cx="76" cy="49" r="1.5" fill="white"/>
+  <!-- Eyebrows (sad) -->
+  <path d="M48,44 Q54,40 60,44" fill="none" stroke="#333" stroke-width="1.5"/>
+  <path d="M68,44 Q74,40 80,44" fill="none" stroke="#333" stroke-width="1.5"/>
+  <!-- Nose -->
+  <ellipse cx="64" cy="60" rx="4" ry="3" fill="#FF69B4"/>
+  <!-- Mouth (sad) -->
+  <path d="M58,68 Q64,62 70,68" fill="none" stroke="#333" stroke-width="1.5"/>
+  <!-- Body -->
+  <ellipse cx="64" cy="95" rx="30" ry="25" fill="url(#rabbitBody)" stroke="#DDD" stroke-width="2"/>
+  <!-- Arms (weak) -->
+  <ellipse cx="38" cy="92" rx="8" ry="15" fill="white" stroke="#DDD" stroke-width="2"/>
+  <ellipse cx="90" cy="92" rx="8" ry="15" fill="white" stroke="#DDD" stroke-width="2"/>
+  <!-- Legs -->
+  <ellipse cx="50" cy="118" rx="12" ry="8" fill="white" stroke="#DDD" stroke-width="2"/>
+  <ellipse cx="78" cy="118" rx="12" ry="8" fill="white" stroke="#DDD" stroke-width="2"/>
+  <!-- Sick indicator - red X -->
+  <circle cx="95" cy="25" r="8" fill="#F44336"/>
+  <path d="M91,21 L99,29 M99,21 L91,29" stroke="white" stroke-width="2" stroke-linecap="round"/>
+  <!-- Thermometer -->
+  <rect x="100" y="50" width="4" height="20" rx="2" fill="white" stroke="#333" stroke-width="1"/>
+  <circle cx="102" cy="72" r="4" fill="#F44336"/>
+  <rect x="101" y="55" width="2" height="15" fill="#F44336"/>
+</svg>

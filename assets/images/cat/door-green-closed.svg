@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- Door frame -->
+  <rect x="4" y="2" width="56" height="60" rx="3" fill="#8D6E63" stroke="#5D4037" stroke-width="2"/>
+  <!-- Door -->
+  <rect x="8" y="6" width="48" height="52" rx="2" fill="#4CAF50" stroke="#2E7D32" stroke-width="2"/>
+  <!-- Door panels -->
+  <rect x="14" y="12" width="16" height="18" rx="2" fill="#66BB6A"/>
+  <rect x="34" y="12" width="16" height="18" rx="2" fill="#66BB6A"/>
+  <rect x="14" y="35" width="16" height="18" rx="2" fill="#66BB6A"/>
+  <rect x="34" y="35" width="16" height="18" rx="2" fill="#66BB6A"/>
+  <!-- Door handle -->
+  <circle cx="42" cy="35" r="4" fill="#FFC107" stroke="#F9A825" stroke-width="1"/>
+  <circle cx="42" cy="35" r="2" fill="#FFD54F"/>
+  <!-- Keyhole -->
+  <circle cx="42" cy="42" r="2" fill="#333"/>
+  <rect x="41" y="42" width="2" height="4" fill="#333"/>
+</svg>

@@ -184,6 +184,10 @@ class HorseRacingGame {
             }
         };
 
+        // 资源加载器
+        this.assetLoader = new AssetLoader();
+        this.assetsReady = false;
+
         this.init();
     }
 
@@ -192,7 +196,38 @@ class HorseRacingGame {
         this.bindEvents();
         this.calculateTrackPositions();
         this.renderLevelGrid();
+        this.loadAssets();
         this.gameLoop();
+    }
+
+    async loadAssets() {
+        const manifest = {
+            images: {
+                'horse-purple': 'assets/images/horse/horse-purple.svg',
+                'horse-blue': 'assets/images/horse/horse-blue.svg',
+                'horse-red': 'assets/images/horse/horse-red.svg',
+                cloud: 'assets/images/horse/cloud.svg',
+                tree: 'assets/images/horse/tree.svg',
+                flowers: 'assets/images/horse/flowers.svg',
+            },
+            sounds: {
+                gallop: 'assets/sounds/horse/gallop.wav',
+                boost: 'assets/sounds/shared/collect.wav',
+                correct: 'assets/sounds/shared/correct.wav',
+                wrong: 'assets/sounds/shared/wrong.wav',
+                countdown: 'assets/sounds/horse/countdown.wav',
+                go: 'assets/sounds/horse/go.wav',
+                cheer: 'assets/sounds/horse/cheer.wav',
+                finish: 'assets/sounds/shared/level-complete.wav',
+                levelup: 'assets/sounds/shared/level-complete.wav',
+            }
+        };
+        try {
+            await this.assetLoader.loadAll(manifest);
+            this.assetsReady = true;
+        } catch (e) {
+            console.warn('资源加载失败，使用降级渲染', e);
+        }
     }
 
     setupCanvas() {
@@ -286,6 +321,9 @@ class HorseRacingGame {
     }
 
     playSound(type) {
+        // 优先使用音频文件
+        if (this.assetLoader.playSound(type, 0.5)) return;
+        // 降级到 Web Audio 合成
         if (!this.audioCtx) return;
         const ctx = this.audioCtx;
         const now = ctx.currentTime;
@@ -974,6 +1012,12 @@ class HorseRacingGame {
     }
 
     drawCloud(ctx, x, y, size) {
+        const img = this.assetLoader.getImage('cloud');
+        if (img) {
+            ctx.drawImage(img, x - size, y - size, size * 3, size * 2);
+            return;
+        }
+        // 降级
         ctx.beginPath();
         ctx.arc(x, y, size, 0, Math.PI * 2);
         ctx.arc(x + size * 0.8, y - size * 0.3, size * 0.7, 0, Math.PI * 2);
@@ -984,32 +1028,47 @@ class HorseRacingGame {
     drawDecorations(ctx, w, h) {
         const grassY = h * 0.85;
 
-        // 树木
+        // 树木 - 优先使用 sprite
+        const treeImg = this.assetLoader.getImage('tree');
+        const flowerImg = this.assetLoader.getImage('flowers');
         const treePositions = [60, 200, 400, 550, 700];
         treePositions.forEach(tx => {
-            ctx.fillStyle = '#8B4513';
-            ctx.fillRect(tx - 3, grassY + 5, 6, 20);
-            ctx.fillStyle = '#228B22';
-            ctx.beginPath();
-            ctx.moveTo(tx - 15, grassY + 8);
-            ctx.lineTo(tx, grassY - 15);
-            ctx.lineTo(tx + 15, grassY + 8);
-            ctx.fill();
+            if (treeImg) {
+                ctx.drawImage(treeImg, tx - 20, grassY - 20, 40, 45);
+            } else {
+                // 降级
+                ctx.fillStyle = '#8B4513';
+                ctx.fillRect(tx - 3, grassY + 5, 6, 20);
+                ctx.fillStyle = '#228B22';
+                ctx.beginPath();
+                ctx.moveTo(tx - 15, grassY + 8);
+                ctx.lineTo(tx, grassY - 15);
+                ctx.lineTo(tx + 15, grassY + 8);
+                ctx.fill();
+            }
         });
 
         // 花朵
-        const flowerColors = ['#FF69B4', '#FFD700', '#FF6347', '#DA70D6', '#87CEEB'];
-        for (let fx = 30; fx < w; fx += 70) {
-            const color = flowerColors[Math.floor(fx / 70) % flowerColors.length];
-            const fy = grassY + 15 + Math.sin(fx * 0.1) * 3;
-            ctx.fillStyle = color;
-            ctx.beginPath();
-            ctx.arc(fx, fy, 4, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.fillStyle = '#FFD700';
-            ctx.beginPath();
-            ctx.arc(fx, fy, 1.5, 0, Math.PI * 2);
-            ctx.fill();
+        if (flowerImg) {
+            for (let fx = 30; fx < w; fx += 70) {
+                const fy = grassY + 10 + Math.sin(fx * 0.1) * 3;
+                ctx.drawImage(flowerImg, fx - 8, fy - 8, 16, 16);
+            }
+        } else {
+            // 降级
+            const flowerColors = ['#FF69B4', '#FFD700', '#FF6347', '#DA70D6', '#87CEEB'];
+            for (let fx = 30; fx < w; fx += 70) {
+                const color = flowerColors[Math.floor(fx / 70) % flowerColors.length];
+                const fy = grassY + 15 + Math.sin(fx * 0.1) * 3;
+                ctx.fillStyle = color;
+                ctx.beginPath();
+                ctx.arc(fx, fy, 4, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = '#FFD700';
+                ctx.beginPath();
+                ctx.arc(fx, fy, 1.5, 0, Math.PI * 2);
+                ctx.fill();
+            }
         }
     }
 
@@ -1098,16 +1157,23 @@ class HorseRacingGame {
                 ctx.fill();
             }
 
-            // 绘制小马 emoji（朝右 = 终点方向）
+            // 绘制小马（朝右 = 终点方向）
             ctx.globalAlpha = 1.0;
             ctx.globalCompositeOperation = 'source-over';
             ctx.save();
-            ctx.translate(x, y + bounce);
-            ctx.scale(-1, 1);  // 水平翻转，让马头朝右
-            ctx.font = '40px Arial';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText(horse.emoji, 0, 0);
+            const horseImg = this.assetLoader.getImage(`horse-${horse.id}`);
+            if (horseImg) {
+                const imgSize = 50;
+                ctx.drawImage(horseImg, x - imgSize / 2, y + bounce - imgSize / 2, imgSize, imgSize);
+            } else {
+                // 降级: emoji 渲染
+                ctx.translate(x, y + bounce);
+                ctx.scale(-1, 1);  // 水平翻转，让马头朝右
+                ctx.font = '40px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(horse.emoji, 0, 0);
+            }
             ctx.restore();
 
             // 方向指示箭头（朝右 = 终点方向，马头已朝右）

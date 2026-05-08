@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <defs>
+    <radialGradient id="redHorse" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#EF5350"/>
+      <stop offset="100%" stop-color="#C62828"/>
+    </radialGradient>
+  </defs>
+  <!-- Body -->
+  <ellipse cx="64" cy="70" rx="40" ry="25" fill="url(#redHorse)" stroke="#B71C1C" stroke-width="2"/>
+  <!-- Neck -->
+  <path d="M85,55 Q95,30 90,20" fill="#EF5350" stroke="#B71C1C" stroke-width="2"/>
+  <!-- Head -->
+  <ellipse cx="92" cy="18" rx="15" ry="12" fill="#EF5350" stroke="#B71C1C" stroke-width="2"/>
+  <!-- Ear -->
+  <polygon points="88,8 85,-2 95,2" fill="#EF5350" stroke="#B71C1C" stroke-width="1"/>
+  <!-- Eye -->
+  <circle cx="96" cy="16" r="3" fill="white"/>
+  <circle cx="97" cy="17" r="2" fill="#333"/>
+  <circle cx="98" cy="15" r="1" fill="white"/>
+  <!-- Nostril -->
+  <circle cx="102" cy="22" r="2" fill="#B71C1C"/>
+  <!-- Mouth -->
+  <path d="M100,25 Q97,28 94,25" fill="none" stroke="#333" stroke-width="1"/>
+  <!-- Mane -->
+  <path d="M88,10 Q80,20 82,35 Q84,45 88,55" fill="none" stroke="#B71C1C" stroke-width="4" stroke-linecap="round"/>
+  <path d="M86,15 Q78,25 80,38" fill="none" stroke="#C62828" stroke-width="3" stroke-linecap="round"/>
+  <!-- Tail -->
+  <path d="M25,60 Q15,50 20,40 Q25,30 18,20" fill="none" stroke="#B71C1C" stroke-width="5" stroke-linecap="round"/>
+  <!-- Legs -->
+  <rect x="40" y="90" width="8" height="30" rx="4" fill="#EF5350" stroke="#B71C1C" stroke-width="1"/>
+  <rect x="55" y="90" width="8" height="30" rx="4" fill="#EF5350" stroke="#B71C1C" stroke-width="1"/>
+  <rect x="72" y="90" width="8" height="30" rx="4" fill="#EF5350" stroke="#B71C1C" stroke-width="1"/>
+  <rect x="85" y="90" width="8" height="30" rx="4" fill="#EF5350" stroke="#B71C1C" stroke-width="1"/>
+  <!-- Hooves -->
+  <rect x="39" y="118" width="10" height="6" rx="2" fill="#333"/>
+  <rect x="54" y="118" width="10" height="6" rx="2" fill="#333"/>
+  <rect x="71" y="118" width="10" height="6" rx="2" fill="#333"/>
+  <rect x="84" y="118" width="10" height="6" rx="2" fill="#333"/>
+</svg>

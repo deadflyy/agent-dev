@@ -55,6 +55,10 @@ class DoctorGame {
         this.weatherMusicNodes = [];
         this.weatherMusicGain = null;
 
+        // 资源加载器
+        this.assetLoader = new AssetLoader();
+        this.assetsReady = false;
+
         // 初始化
         this.init();
     }
@@ -237,7 +241,38 @@ class DoctorGame {
         this.setDifficulty('medium');
         this.renderLevelGrid();
         this.bindEvents();
+        this.loadAssets();
         this.showScreen('startScreen');
+    }
+
+    async loadAssets() {
+        const pillColors = ['red', 'blue', 'green', 'yellow'];
+        const images = {
+            doctor: 'assets/images/doctor/doctor.svg',
+            'rabbit-sick': 'assets/images/doctor/rabbit-sick.svg',
+            'rabbit-healthy': 'assets/images/doctor/rabbit-healthy.svg',
+            tree: 'assets/images/doctor/tree.svg',
+        };
+        pillColors.forEach(c => { images[`pill-${c}`] = `assets/images/doctor/pill-${c}.svg`; });
+
+        const manifest = {
+            images,
+            sounds: {
+                move: 'assets/sounds/shared/collect.wav',
+                collect_pill: 'assets/sounds/shared/collect.wav',
+                puzzle_correct: 'assets/sounds/shared/correct.wav',
+                puzzle_wrong: 'assets/sounds/shared/wrong.wav',
+                heal: 'assets/sounds/doctor/heal.wav',
+                level_complete: 'assets/sounds/shared/level-complete.wav',
+                game_complete: 'assets/sounds/shared/game-complete.wav',
+            }
+        };
+        try {
+            await this.assetLoader.loadAll(manifest);
+            this.assetsReady = true;
+        } catch (e) {
+            console.warn('资源加载失败，使用降级渲染', e);
+        }
     }
 
     // 绑定事件
@@ -1315,6 +1350,9 @@ class DoctorGame {
 
     // 播放音效
     playSound(type) {
+        // 优先使用音频文件
+        if (this.assetLoader.playSound(type, 0.5)) return;
+        // 降级到 Web Audio 合成
         if (!this.audioCtx) return;
         const ctx = this.audioCtx;
         const now = ctx.currentTime;
@@ -2075,6 +2113,14 @@ class DoctorGame {
             const y = wall.y * this.tileSize;
             const size = this.tileSize;
 
+            // 优先使用 sprite
+            const img = this.assetLoader.getImage('tree');
+            if (img) {
+                this.ctx.drawImage(img, x + 2, y + 2, size - 4, size - 4);
+                return;
+            }
+
+            // 降级: Canvas 矢量绘制
             // 树干
             this.ctx.fillStyle = '#8D6E63';
             this.ctx.fillRect(x + size * 0.2, y + size * 0.2, size * 0.6, size * 0.6);
@@ -2095,6 +2141,12 @@ class DoctorGame {
         });
     }
 
+    // 药片颜色名映射
+    getPillColorName(hex) {
+        const map = { '#E91E63': 'red', '#2196F3': 'blue', '#FF9800': 'yellow', '#9C27B0': 'red', '#00BCD4': 'blue' };
+        return map[hex] || 'red';
+    }
+
     // 绘制药片
     drawPills() {
         this.pills.forEach(pill => {
@@ -2104,6 +2156,16 @@ class DoctorGame {
             const y = pill.y * this.tileSize + this.tileSize / 2;
             const radius = this.tileSize * 0.25;
 
+            // 优先使用 sprite
+            const colorName = this.getPillColorName(pill.color);
+            const img = this.assetLoader.getImage(`pill-${colorName}`);
+            if (img) {
+                const size = this.tileSize * 0.5;
+                this.ctx.drawImage(img, x - size / 2, y - size / 2, size, size);
+                return;
+            }
+
+            // 降级: Canvas 矢量绘制
             // 药片光晕
             const gradient = this.ctx.createRadialGradient(x, y, 0, x, y, radius * 1.5);
             gradient.addColorStop(0, pill.color + '80');
@@ -2149,6 +2211,31 @@ class DoctorGame {
             jumpOffset = Math.sin(this.rabbitJumpFrame) * size * 0.15;
         }
 
+        // 优先使用 sprite
+        const spriteKey = this.rabbitHealed ? 'rabbit-healthy' : 'rabbit-sick';
+        const img = this.assetLoader.getImage(spriteKey);
+        if (img) {
+            this.ctx.drawImage(img, x + 2, y + 2 - jumpOffset, size - 4, size - 4);
+            // 保留康复后的爱心粒子效果叠加
+            if (this.rabbitHealed) {
+                const heartCount = 5;
+                for (let i = 0; i < heartCount; i++) {
+                    const heartPhase = this.rabbitJumpFrame + i * 1.5;
+                    const heartX = x + size * (0.3 + i * 0.15) + Math.sin(heartPhase * 0.5) * size * 0.1;
+                    const heartY = y + size * 0.1 - jumpOffset - (heartPhase % 5) * size * 0.08;
+                    const heartAlpha = 1 - (heartPhase % 5) / 5;
+                    const heartSize = size * 0.08 * (0.8 + Math.sin(heartPhase) * 0.2);
+                    this.ctx.fillStyle = `rgba(255, 105, 180, ${heartAlpha})`;
+                    this.ctx.font = `${heartSize * 2}px Arial`;
+                    this.ctx.textAlign = 'center';
+                    this.ctx.textBaseline = 'middle';
+                    this.ctx.fillText('❤️', heartX, heartY);
+                }
+            }
+            return;
+        }
+
+        // 降级: Canvas 矢量绘制
         // 床
         this.ctx.fillStyle = '#8D6E63';
         this.ctx.fillRect(x + size * 0.1, y + size * 0.5, size * 0.8, size * 0.4);
@@ -2297,6 +2384,19 @@ class DoctorGame {
         const y = this.doctor.y * this.tileSize;
         const size = this.tileSize;
 
+        // 优先使用 sprite
+        const img = this.assetLoader.getImage('doctor');
+        if (img) {
+            // 阴影
+            this.ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
+            this.ctx.beginPath();
+            this.ctx.ellipse(x + size * 0.5, y + size * 0.88, size * 0.3, size * 0.08, 0, 0, Math.PI * 2);
+            this.ctx.fill();
+            this.ctx.drawImage(img, x + 2, y + 2, size - 4, size - 4);
+            return;
+        }
+
+        // 降级: Canvas 矢量绘制
         // 阴影
         this.ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
         this.ctx.beginPath();

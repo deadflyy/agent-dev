@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- Door frame -->
+  <rect x="4" y="2" width="56" height="60" rx="3" fill="#8D6E63" stroke="#5D4037" stroke-width="2"/>
+  <!-- Open door (perspective) -->
+  <path d="M8,6 L20,10 L20,54 L8,58 Z" fill="#2E7D32" stroke="#1B5E20" stroke-width="1"/>
+  <!-- Door interior (dark) -->
+  <rect x="20" y="10" width="36" height="48" fill="#2C1810"/>
+  <!-- Door panels on open door -->
+  <path d="M10,15 L18,18 L18,30 L10,27 Z" fill="#66BB6A"/>
+  <path d="M10,35 L18,38 L18,50 L10,47 Z" fill="#66BB6A"/>
+  <!-- Door handle on open door -->
+  <circle cx="17" cy="35" r="3" fill="#FFC107" stroke="#F9A825" stroke-width="1"/>
+</svg>

@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <radialGradient id="starGradient" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#FFD700"/>
+      <stop offset="100%" stop-color="#FFA000"/>
+    </radialGradient>
+    <filter id="starGlow">
+      <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <!-- Star glow -->
+  <polygon points="32,4 39,22 58,22 43,34 48,52 32,42 16,52 21,34 6,22 25,22" fill="#FFD700" filter="url(#starGlow)" opacity="0.5"/>
+  <!-- Star -->
+  <polygon points="32,8 38,22 54,22 42,32 46,48 32,38 18,48 22,32 10,22 26,22" fill="url(#starGradient)" stroke="#FF8F00" stroke-width="1.5"/>
+  <!-- Star highlight -->
+  <polygon points="32,14 36,22 48,22 39,28 42,40 32,33 22,40 25,28 16,22 28,22" fill="#FFEB3B" opacity="0.5"/>
+</svg>

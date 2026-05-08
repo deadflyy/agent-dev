@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- Wall base -->
+  <rect x="0" y="0" width="64" height="64" fill="#E8D5B7"/>
+  <!-- Brick pattern -->
+  <rect x="0" y="0" width="32" height="16" fill="#D4A574" stroke="#C8A882" stroke-width="1"/>
+  <rect x="32" y="0" width="32" height="16" fill="#D4A574" stroke="#C8A882" stroke-width="1"/>
+  <rect x="16" y="16" width="32" height="16" fill="#D4A574" stroke="#C8A882" stroke-width="1"/>
+  <rect x="0" y="32" width="32" height="16" fill="#D4A574" stroke="#C8A882" stroke-width="1"/>
+  <rect x="32" y="32" width="32" height="16" fill="#D4A574" stroke="#C8A882" stroke-width="1"/>
+  <rect x="16" y="48" width="32" height="16" fill="#D4A574" stroke="#C8A882" stroke-width="1"/>
+  <!-- Flower decorations -->
+  <circle cx="16" cy="8" r="4" fill="#FF6B9D"/>
+  <circle cx="16" cy="8" r="2" fill="#FFEB3B"/>
+  <circle cx="48" cy="24" r="4" fill="#FF6B9D"/>
+  <circle cx="48" cy="24" r="2" fill="#FFEB3B"/>
+  <circle cx="16" cy="40" r="4" fill="#FF6B9D"/>
+  <circle cx="16" cy="40" r="2" fill="#FFEB3B"/>
+  <circle cx="48" cy="56" r="4" fill="#FF6B9D"/>
+  <circle cx="48" cy="56" r="2" fill="#FFEB3B"/>
+  <!-- Vine decorations -->
+  <path d="M8,0 Q12,8 8,16" fill="none" stroke="#4CAF50" stroke-width="1.5"/>
+  <path d="M40,16 Q44,24 40,32" fill="none" stroke="#4CAF50" stroke-width="1.5"/>
+  <path d="M8,32 Q12,40 8,48" fill="none" stroke="#4CAF50" stroke-width="1.5"/>
+  <path d="M40,48 Q44,56 40,64" fill="none" stroke="#4CAF50" stroke-width="1.5"/>
+  <!-- Leaves -->
+  <ellipse cx="10" cy="4" rx="3" ry="2" fill="#66BB6A" transform="rotate(-30 10 4)"/>
+  <ellipse cx="42" cy="20" rx="3" ry="2" fill="#66BB6A" transform="rotate(-30 42 20)"/>
+  <ellipse cx="10" cy="36" rx="3" ry="2" fill="#66BB6A" transform="rotate(-30 10 36)"/>
+  <ellipse cx="42" cy="52" rx="3" ry="2" fill="#66BB6A" transform="rotate(-30 42 52)"/>
+</svg>

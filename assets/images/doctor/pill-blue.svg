@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="bluePill" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#448AFF"/>
+      <stop offset="50%" stop-color="#2979FF"/>
+      <stop offset="100%" stop-color="#1565C0"/>
+    </linearGradient>
+  </defs>
+  <!-- Pill body -->
+  <ellipse cx="32" cy="32" rx="24" ry="12" fill="url(#bluePill)" stroke="#0D47A1" stroke-width="2" transform="rotate(-30 32 32)"/>
+  <!-- Pill highlight -->
+  <ellipse cx="28" cy="28" rx="8" ry="4" fill="white" opacity="0.4" transform="rotate(-30 28 28)"/>
+  <!-- Pill cap -->
+  <ellipse cx="18" cy="40" rx="12" ry="10" fill="#82B1FF" stroke="#1565C0" stroke-width="2" transform="rotate(-30 18 40)"/>
+  <!-- Pill cap highlight -->
+  <ellipse cx="15" cy="37" rx="4" ry="3" fill="white" opacity="0.3" transform="rotate(-30 15 37)"/>
+</svg>
